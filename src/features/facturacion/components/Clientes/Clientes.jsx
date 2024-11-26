@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Swal from 'sweetalert2';
 import { Table, Form, Breadcrumb } from 'react-bootstrap';
 import { FaEdit, FaTrash, FaPlus, FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
@@ -21,11 +21,11 @@ export default function Clientes() {
     direction: 'asc',
   });
 
-  const navigate = useNavigate(); // Hook para la navegación
+  const navigate = useNavigate();
 
-  const fetchClientes = async () => {
+  const fetchClientes = useCallback(async () => {
     try {
-      const data = await customFetch('http://10.0.0.17/municipalidad/public/api/clientes', 'GET');
+      const data = await customFetch('/clientes', 'GET');
       if (Array.isArray(data)) {
         setClientes(data);
       } else {
@@ -38,11 +38,11 @@ export default function Clientes() {
     } finally {
       setCargando(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchClientes();
-  }, []);
+  }, [fetchClientes]);
 
   const filteredClientes = clientes.filter((cliente) => {
     const nombreCompleto = `${cliente.persona?.nombre} ${cliente.persona?.apellido}`.toLowerCase();
@@ -79,7 +79,7 @@ export default function Clientes() {
 
   const handleAddClient = async (newClient) => {
     try {
-      await customFetch('http://10.0.0.17/municipalidad/public/api/clientes', 'POST', JSON.stringify(newClient));
+      await customFetch('/clientes', 'POST', newClient);
       await fetchClientes();
       setShowAddModal(false);
       Swal.fire('Éxito', 'Cliente agregado exitosamente.', 'success');
@@ -91,7 +91,7 @@ export default function Clientes() {
 
   const handleEditClient = async (updatedClient) => {
     try {
-      await customFetch(`http://10.0.0.17/municipalidad/public/api/clientes/${updatedClient.id}`, 'PUT', JSON.stringify(updatedClient));
+      await customFetch(`/clientes/${updatedClient.id}`, 'PUT', updatedClient);
       await fetchClientes();
       setShowEditModal(false);
       Swal.fire('Éxito', 'Cliente modificado exitosamente.', 'success');
@@ -115,7 +115,7 @@ export default function Clientes() {
       });
 
       if (result.isConfirmed) {
-        await customFetch(`http://10.0.0.17/municipalidad/public/api/clientes/${id}`, 'DELETE');
+        await customFetch(`/clientes/${id}`, 'DELETE');
         await fetchClientes();
         Swal.fire('Eliminado!', 'El cliente ha sido eliminado.', 'success');
       }
