@@ -1,5 +1,6 @@
 // src/features/facturacion/components/BombeoAgua/HomeBombeoAgua.jsx
-import React, { useContext, useState, useMemo } from 'react';
+
+import React, { useContext, useEffect, useState } from 'react';
 import {
   Card,
   Table,
@@ -9,13 +10,14 @@ import {
   Col,
 } from 'react-bootstrap';
 import { BombeoAguaContext } from '../../../../context/BombeoAguaContext';
-import BarChart from '../../../../components/common/charts/BarChart';
-import LineChart from '../../../../components/common/charts/LineChart';
-import StackedBarChart from '../../../../components/common/charts/StackedBarChart';
-import RevenuePieChart from '../../../../components/common/charts/RevenuePieChart';
-import HistogramChart from '../../../../components/common/charts/HistogramChart';
-import HeatmapChart from '../../../../components/common/charts/HeatmapChart';
-import KpiCards from '../../../../components/common/charts/KpiCards';
+
+import { 
+  BarChart, 
+  RevenuePieChart, 
+  StackedBarChart, 
+  HeatmapChart, 
+  KpiCards 
+} from '../../../../components/common/charts'; // Eliminado LineChart y HistogramChart
 
 const HomeBombeoAgua = () => {
   const {
@@ -23,24 +25,67 @@ const HomeBombeoAgua = () => {
     loadingHomePeriodos,
     getPeriodosByServicio,
     getPeriodosByMonth,
-    getTrendPeriodos,
+    // getTrendPeriodos, // Eliminado
     getRevenueByService,
-    getIncomeDistribution,
+    // getIncomeDistribution, // Eliminado
     getHeatmapData,
     getKpis,
     servicios,
     loadingServicios,
   } = useContext(BombeoAguaContext);
-  const [displayLimit, setDisplayLimit] = useState(6);
 
-  // Memorizar datos de los gráficos para optimizar rendimiento
-  const chartDataServicio = useMemo(() => getPeriodosByServicio(), [getPeriodosByServicio]);
-  const chartDataMes = useMemo(() => getPeriodosByMonth(), [getPeriodosByMonth]);
-  const chartDataTrend = useMemo(() => getTrendPeriodos(), [getTrendPeriodos]);
-  const chartDataRevenue = useMemo(() => getRevenueByService(), [getRevenueByService]);
-  const chartDataHistogram = useMemo(() => getIncomeDistribution(), [getIncomeDistribution]);
-  const chartDataHeatmap = useMemo(() => getHeatmapData(), [getHeatmapData]);
-  const kpiData = useMemo(() => getKpis(), [getKpis]);
+  const [chartDataServicio, setChartDataServicio] = useState(null);
+  const [chartDataMes, setChartDataMes] = useState(null);
+  // const [chartDataTrend, setChartDataTrend] = useState(null); // Eliminado
+  const [chartDataRevenue, setChartDataRevenue] = useState(null);
+  // const [chartDataHistogram, setChartDataHistogram] = useState(null); // Eliminado
+  const [chartDataHeatmap, setChartDataHeatmap] = useState(null);
+  const [kpiData, setKpiData] = useState({
+    totalPeriodos: 0,
+    totalIngresos: 0,
+    promedioMensual: 0,
+  });
+
+  useEffect(() => {
+    const fetchChartData = async () => {
+      try {
+        const servicioData = await getPeriodosByServicio();
+        setChartDataServicio(servicioData);
+
+        const mesData = await getPeriodosByMonth();
+        setChartDataMes(mesData);
+
+        // Eliminado trendData
+        // const trendData = await getTrendPeriodos();
+        // setChartDataTrend(trendData);
+
+        const revenueData = await getRevenueByService();
+        setChartDataRevenue(revenueData);
+
+        // Eliminado histogramData
+        // const histogramData = await getIncomeDistribution();
+        // setChartDataHistogram(histogramData);
+
+        const heatmapData = await getHeatmapData();
+        setChartDataHeatmap(heatmapData);
+
+        const kpis = getKpis();
+        setKpiData(kpis);
+      } catch (err) {
+        console.error("Error al obtener datos de los gráficos:", err);
+      }
+    };
+
+    fetchChartData();
+  }, [
+    getPeriodosByServicio, 
+    getPeriodosByMonth, 
+    // getTrendPeriodos, // Eliminado
+    getRevenueByService, 
+    // getIncomeDistribution, // Eliminado
+    getHeatmapData,
+    getKpis,
+  ]);
 
   const getServiceNameById = (serviceId) => {
     const service = servicios.find(
@@ -55,9 +100,11 @@ const HomeBombeoAgua = () => {
     );
   };
 
+  const [displayLimit, setDisplayLimit] = useState(6);
+
   return (
     <div className="home-bombeo-agua">
-      <Card className="p-3 shadow-sm">
+      <Card className="p-4 shadow-sm">
         {(loadingHomePeriodos || loadingServicios) ? (
           <div className="text-center py-5">
             <Spinner animation="border" role="status">
@@ -80,48 +127,113 @@ const HomeBombeoAgua = () => {
               <>
                 {/* Primera Fila de Gráficos */}
                 <Row className="mb-4">
-                  <Col md={4}>
-                    <h5 className="text-center mb-3">Comparativa de Periodos Generados</h5>
-                    <RevenuePieChart data={chartDataServicio} loading={loadingHomePeriodos || loadingServicios} />
+                  {/* Comparativa de Períodos Generados */}
+                  <Col xs={12} md={6} lg={4} className="mb-4">
+                    <Card className="h-100">
+                      <Card.Body>
+                        <h5 className="text-center mb-3">Comparativa de Períodos Generados</h5>
+                        {chartDataServicio ? (
+                          <RevenuePieChart data={chartDataServicio} height={250} />
+                        ) : (
+                          <div className="text-center py-5">
+                            <Spinner animation="border" role="status">
+                              <span className="visually-hidden">Cargando...</span>
+                            </Spinner>
+                          </div>
+                        )}
+                      </Card.Body>
+                    </Card>
                   </Col>
-                  <Col md={4}>
-                    <h5 className="text-center mb-3">Periodos Generados por Mes</h5>
-                    <BarChart data={chartDataMes} loading={loadingHomePeriodos || loadingServicios} />
+
+                  {/* Distribución de Ingresos por Servicios */}
+                  <Col xs={12} md={6} lg={4} className="mb-4">
+                    <Card className="h-100">
+                      <Card.Body>
+                        <h5 className="text-center mb-3">Distribución de Ingresos por Servicios</h5>
+                        {chartDataRevenue ? (
+                          <RevenuePieChart data={chartDataRevenue} height={250} />
+                        ) : (
+                          <div className="text-center py-5">
+                            <Spinner animation="border" role="status">
+                              <span className="visually-hidden">Cargando...</span>
+                            </Spinner>
+                          </div>
+                        )}
+                      </Card.Body>
+                    </Card>
                   </Col>
-                  <Col md={4}>
-                    <h5 className="text-center mb-3">Tendencia de Periodos Generados</h5>
-                    <LineChart data={chartDataTrend} loading={loadingHomePeriodos || loadingServicios} />
+
+                  {/* Períodos Generados por Mes */}
+                  <Col xs={12} md={6} lg={4} className="mb-4">
+                    <Card className="h-100">
+                      <Card.Body>
+                        <h5 className="text-center mb-3">Períodos Generados por Mes</h5>
+                        {chartDataMes ? (
+                          <BarChart data={chartDataMes} height={250} />
+                        ) : (
+                          <div className="text-center py-5">
+                            <Spinner animation="border" role="status">
+                              <span className="visually-hidden">Cargando...</span>
+                            </Spinner>
+                          </div>
+                        )}
+                      </Card.Body>
+                    </Card>
                   </Col>
                 </Row>
 
                 {/* Segunda Fila de Gráficos */}
                 <Row className="mb-4">
-                  <Col md={6}>
-                    <h5 className="text-center mb-3">Periodos Generados por Mes y Servicio</h5>
-                    <StackedBarChart data={chartDataMes} loading={loadingHomePeriodos || loadingServicios} />
+                  {/* Períodos Generados por Mes y Servicio */}
+                  <Col xs={12} md={6} lg={6} className="mb-4">
+                    <Card className="h-100">
+                      <Card.Body>
+                        <h5 className="text-center mb-3">Períodos Generados por Mes y Servicio</h5>
+                        {chartDataMes && chartDataServicio ? (
+                          <StackedBarChart data={{
+                            categories: chartDataMes.categories,
+                            series: [
+                              {
+                                name: 'Ingresos por Servicio',
+                                data: chartDataServicio.series,
+                              },
+                              // Puedes añadir más series si tienes múltiples servicios
+                            ],
+                          }} height={250} />
+                        ) : (
+                          <div className="text-center py-5">
+                            <Spinner animation="border" role="status">
+                              <span className="visually-hidden">Cargando...</span>
+                            </Spinner>
+                          </div>
+                        )}
+                      </Card.Body>
+                    </Card>
                   </Col>
-                  <Col md={6}>
-                    <h5 className="text-center mb-3">Distribución de Ingresos por Servicio</h5>
-                    <RevenuePieChart data={chartDataRevenue} loading={loadingHomePeriodos || loadingServicios} />
-                  </Col>
-                </Row>
 
-                {/* Tercera Fila de Gráficos */}
-                <Row className="mb-4">
-                  <Col md={6}>
-                    <h5 className="text-center mb-3">Distribución de Ingresos</h5>
-                    <HistogramChart data={chartDataHistogram} loading={loadingHomePeriodos || loadingServicios} />
-                  </Col>
-                  <Col md={6}>
-                    <h5 className="text-center mb-3">Mapa de Calor de Periodos Generados</h5>
-                    <HeatmapChart data={chartDataHeatmap} loading={loadingHomePeriodos || loadingServicios} />
+                  {/* Mapa de Calor de Períodos Generados */}
+                  <Col xs={12} md={6} lg={6} className="mb-4">
+                    <Card className="h-100">
+                      <Card.Body>
+                        <h5 className="text-center mb-3">Mapa de Calor de Períodos Generados</h5>
+                        {chartDataHeatmap ? (
+                          <HeatmapChart data={chartDataHeatmap} height={300} />
+                        ) : (
+                          <div className="text-center py-5">
+                            <Spinner animation="border" role="status">
+                              <span className="visually-hidden">Cargando...</span>
+                            </Spinner>
+                          </div>
+                        )}
+                      </Card.Body>
+                    </Card>
                   </Col>
                 </Row>
               </>
             )}
 
-            {/* Tabla */}
-            <h2 className="text-center mb-4">Últimos Periodos Generados</h2>
+            {/* Tabla de Períodos Generados */}
+            <h2 className="text-center mb-4">Últimos Períodos Generados</h2>
             <Table striped bordered hover responsive>
               <thead>
                 <tr>
@@ -134,7 +246,7 @@ const HomeBombeoAgua = () => {
                   <th>Cuota</th>
                   <th>Importe AR$</th>
                   <th>Vencimiento</th>
-                  <th>Fecha creación</th>
+                  <th>Fecha Creación</th>
                 </tr>
               </thead>
               <tbody>
@@ -168,7 +280,7 @@ const HomeBombeoAgua = () => {
                 ) : (
                   <tr>
                     <td colSpan="10" className="text-center text-muted">
-                      No hay periodos disponibles.
+                      No hay períodos disponibles.
                     </td>
                   </tr>
                 )}

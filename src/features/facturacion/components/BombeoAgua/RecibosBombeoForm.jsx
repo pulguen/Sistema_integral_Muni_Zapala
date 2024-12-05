@@ -109,7 +109,7 @@ const RecibosBombeoForm = () => {
     setLoading(true);
     try {
       const data = await customFetch(`/cuentas/cliente/${cliente_id}`);
-      console.log('Datos recibidos:', data);
+      console.log('Datos recibidos:', data);      
 
       // Extraer 'responseData' y 'statusCode' de 'data'
       const [responseData] = data;
@@ -376,7 +376,7 @@ const RecibosBombeoForm = () => {
                       <td>{periodo.cuota}</td>
                       <td>{periodo.i_debito}</td>
                       <td>{periodo.i_descuento}</td>
-                      <td>{periodo.i_recargo_actualizado}</td>
+                      <td>{periodo.i_recargo_actualizado.toFixed(2)}</td>
                       <td>{`$${(periodo.i_debito - periodo.i_descuento + periodo.i_recargo_actualizado).toFixed(2)}`}</td>
                       <td>
                         {new Date(periodo.f_vencimiento).toLocaleDateString()}

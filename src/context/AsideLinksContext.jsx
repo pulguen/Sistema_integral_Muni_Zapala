@@ -20,6 +20,11 @@ export const AsideLinksProvider = ({ children }) => {
       { href: '/inventario/agregar', label: 'Agregar Producto' },
       { href: '/inventario/stock', label: 'Ver Stock' },
     ],
+    usuarios: [
+      {href: '/usuarios', label: 'Usuarios'},
+      {href: '/usuarios/roles', label: 'Roles'},
+      {href: '/usuarios/permisos', label: 'Permisos'},
+    ]
     // Puedes agregar más subsistemas aquí...
   };
   

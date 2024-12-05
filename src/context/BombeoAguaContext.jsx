@@ -1,6 +1,7 @@
 // src/context/BombeoAguaContext.jsx
-import React, { createContext, useState, useCallback, useEffect, useMemo } from 'react';
+import React, { createContext, useState, useCallback, useEffect, useMemo, useContext } from 'react';
 import customFetch from './CustomFetch';
+import { FacturacionContext } from './../context/FacturacionContext'
 
 export const BombeoAguaContext = createContext();
 
@@ -11,6 +12,8 @@ export const BombeoAguaProvider = ({ children }) => {
   const [loadingHomePeriodos, setLoadingHomePeriodos] = useState(false);
   const [servicios, setServicios] = useState([]);
   const [loadingServicios, setLoadingServicios] = useState(true);
+
+  const { registerModule } = useContext(FacturacionContext); // Conectar al contexto global
 
   // Fetch de servicios
   const fetchServicios = useCallback(async () => {
@@ -33,10 +36,8 @@ export const BombeoAguaProvider = ({ children }) => {
     setLoadingHomePeriodos(true);
     try {
       // Desestructuramos el array para obtener los datos y el código de estado
-      const [data, statusCode] = await customFetch('/cuentas');
-      console.log('data:', data);
-      console.log('statusCode:', statusCode);
-
+      const [data] = await customFetch('/cuentas');
+      
       if (Array.isArray(data)) {
         // Filtrar periodos que tienen cliente y persona
         const validPeriodos = data.filter(
@@ -68,6 +69,15 @@ export const BombeoAguaProvider = ({ children }) => {
   useEffect(() => {
     fetchHomePeriodos();
   }, [fetchHomePeriodos]);
+
+  useEffect(() => {
+    fetchHomePeriodos();
+  }, [fetchHomePeriodos]);
+
+  useEffect(() => {
+    // Registrar este módulo en FacturacionContext
+    registerModule("bombeo", { servicios, periodos, fetchHomePeriodos });
+  }, [registerModule, servicios, periodos, fetchHomePeriodos]);
 
   // Crear período
   const handleCreatePeriodo = useCallback((newPeriodo) => {

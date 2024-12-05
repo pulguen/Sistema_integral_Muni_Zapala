@@ -24,7 +24,6 @@ export const AuthProvider = ({ children }) => {
         const data = await customFetch(`/users/${userId}`, 'GET');
         setUser({ id: userId, name: data.name });
         localStorage.setItem('userName', data.name);
-        console.log('datos Usuario:', data)
       } catch (error) {
         console.error('Error al obtener los datos del usuario:', error);
         setToken(null);

@@ -1,5 +1,3 @@
-// src/features/facturacion/components/BombeoAgua/BombeoAguaForm.jsx
-
 import React, {
   useState,
   useEffect,
@@ -7,7 +5,7 @@ import React, {
   useRef,
   useContext,
   useMemo,
-} from 'react';
+} from "react";
 import {
   Form,
   Row,
@@ -17,28 +15,28 @@ import {
   ListGroup,
   Table,
   Spinner,
-} from 'react-bootstrap';
-import Swal from 'sweetalert2';
-import CustomButton from '../../../../components/common/botons/CustomButton.jsx';
-import '../../../../styles/PeriodosBombeoForm.css';
-import { BombeoAguaContext } from '../../../../context/BombeoAguaContext.jsx';
-import customFetch from '../../../../context/CustomFetch.js';
+} from "react-bootstrap";
+import Swal from "sweetalert2";
+import CustomButton from "../../../../components/common/botons/CustomButton.jsx";
+import "../../../../styles/PeriodosBombeoForm.css";
+import { BombeoAguaContext } from "../../../../context/BombeoAguaContext.jsx";
+import customFetch from "../../../../context/CustomFetch.js";
 
 const BombeoAguaForm = () => {
   const { handleCreatePeriodo } = useContext(BombeoAguaContext);
 
   const [clients, setClients] = useState([]);
-  const [client, setClient] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
+  const [client, setClient] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
   const [filteredClients, setFilteredClients] = useState([]);
   const [showClientList, setShowClientList] = useState(false);
-  const [volume, setVolume] = useState('');
+  const [volume, setVolume] = useState("");
   const [services, setServices] = useState([]);
   const [filteredServices, setFilteredServices] = useState([]);
-  const [service, setService] = useState('');
-  const [month, setMonth] = useState('');
-  const [cuota, setCuota] = useState('');
-  const [vencimiento, setVencimiento] = useState('');
+  const [service, setService] = useState("");
+  const [month, setMonth] = useState("");
+  const [cuota, setCuota] = useState("");
+  const [vencimiento, setVencimiento] = useState("");
   const [moduleRate, setModuleRate] = useState(0);
   const [totalModules, setTotalModules] = useState(0);
   const [totalInPesos, setTotalInPesos] = useState(0);
@@ -53,14 +51,14 @@ const BombeoAguaForm = () => {
   // Obtener el valor del módulo
   const fetchModuleValue = useCallback(async () => {
     try {
-      const data = await customFetch('/general');
+      const data = await customFetch("/general");
       setModuleValue(data.valor_modulo);
     } catch (error) {
-      console.error('Error al obtener el valor del módulo:', error);
+      console.error("Error al obtener el valor del módulo:", error);
       Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: 'Hubo un problema al obtener el valor del módulo.',
+        icon: "error",
+        title: "Error",
+        text: "Hubo un problema al obtener el valor del módulo.",
       });
     }
   }, []);
@@ -68,8 +66,7 @@ const BombeoAguaForm = () => {
   // Obtener clientes y servicios
   const fetchTributoData = useCallback(async () => {
     try {
-      const data = await customFetch('/tributos/1'
-      );
+      const data = await customFetch("/tributos/1");
       const servicios = data.servicios;
       const clientesFromServices = servicios.flatMap(
         (servicio) => servicio.clientes
@@ -84,11 +81,11 @@ const BombeoAguaForm = () => {
 
       // Ordenar los clientes alfabéticamente por nombre y apellido
       uniqueClients.sort((a, b) => {
-        const nameA = `${a.persona?.nombre || ''} ${
-          a.persona?.apellido || ''
+        const nameA = `${a.persona?.nombre || ""} ${
+          a.persona?.apellido || ""
         }`.toLowerCase();
-        const nameB = `${b.persona?.nombre || ''} ${
-          b.persona?.apellido || ''
+        const nameB = `${b.persona?.nombre || ""} ${
+          b.persona?.apellido || ""
         }`.toLowerCase();
         return nameA.localeCompare(nameB);
       });
@@ -97,44 +94,48 @@ const BombeoAguaForm = () => {
       setClients(uniqueClients);
       setFilteredClients(uniqueClients);
     } catch (error) {
-      console.error('Error al obtener los datos:', error);
+      console.error("Error al obtener los datos:", error);
       Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: 'Hubo un problema al obtener los datos.',
+        icon: "error",
+        title: "Error",
+        text: "Hubo un problema al obtener los datos.",
       });
     }
   }, []);
 
-  const fetchPeriodos = useCallback(
-    async (cliente_id) => {
-      setLoadingPeriodos(true);
-      setPeriodos([]);
-      try {
-        const data = await customFetch(`/cuentas?cliente_id=${cliente_id}`
+  // Obtener períodos
+  const fetchPeriodos = useCallback(async (cliente_id) => {
+    setLoadingPeriodos(true);
+    setPeriodos([]);
+    try {
+      const data = await customFetch(`/cuentas/cliente/${cliente_id}`);
+      const periodosCliente = (data[0] || []).map((periodo) => {
+        const i_debito = parseFloat(periodo.i_debito) || 0;
+        const i_descuento = parseFloat(periodo.i_descuento) || 0;
+        const i_recargo_actualizado = parseFloat(
+          periodo.i_recargo_actualizado || 0
         );
-
-        const periodosCliente = (data[0] || []).filter(
-          (periodo) => periodo.cliente_id === parseInt(cliente_id)
-        );
-
-        const periodosUnicos = Array.from(
-          new Set(periodosCliente.map(JSON.stringify))
-        ).map(JSON.parse);
-        setPeriodos(periodosUnicos);
-      } catch (error) {
-        console.error('Error al obtener los períodos:', error);
-        Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: 'Hubo un problema al obtener los períodos del cliente.',
-        });
-      } finally {
-        setLoadingPeriodos(false);
-      }
-    },
-    []
-  );
+  
+        return {
+          ...periodo,
+          i_recargo_actualizado,
+          total: i_debito - i_descuento + i_recargo_actualizado,
+        };
+      });
+  
+      setPeriodos(periodosCliente);
+    } catch (error) {
+      console.error("Error al obtener los períodos:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "Hubo un problema al obtener los períodos del cliente.",
+      });
+    } finally {
+      setLoadingPeriodos(false);
+    }
+  }, []);
+  
 
   useEffect(() => {
     fetchModuleValue();
@@ -147,7 +148,7 @@ const BombeoAguaForm = () => {
         const clientName = `${client.persona?.nombre} ${client.persona?.apellido}`.toLowerCase();
         const clientDNI = client.persona?.dni
           ? client.persona.dni.toString()
-          : '';
+          : "";
 
         return (
           clientName.includes(searchTerm.toLowerCase()) ||
@@ -203,18 +204,18 @@ const BombeoAguaForm = () => {
   );
 
   const handleKeyPress = useCallback((event) => {
-    if (event.key === 'Escape') {
+    if (event.key === "Escape") {
       setShowClientList(false);
     }
   }, []);
 
   useEffect(() => {
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleKeyPress);
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyPress);
 
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleKeyPress);
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyPress);
     };
   }, [handleClickOutside, handleKeyPress]);
 
@@ -229,7 +230,7 @@ const BombeoAguaForm = () => {
       const selectedService = services.find(
         (servicio) => servicio.id === parseInt(serviceId)
       );
-      return selectedService ? selectedService.nombre : 'Servicio desconocido';
+      return selectedService ? selectedService.nombre : "Servicio desconocido";
     },
     [services]
   );
@@ -239,9 +240,9 @@ const BombeoAguaForm = () => {
 
     if (volume <= 0) {
       Swal.fire(
-        'Error',
-        'El volumen de agua debe ser mayor que cero.',
-        'error'
+        "Error",
+        "El volumen de agua debe ser mayor que cero.",
+        "error"
       );
       return;
     }
@@ -262,22 +263,22 @@ const BombeoAguaForm = () => {
 
     handleCreatePeriodo(periodoData);
     Swal.fire(
-      'Periodo generado',
-      'El periodo ha sido agregado a la lista.',
-      'success'
+      "Periodo generado",
+      "El periodo ha sido agregado a la lista.",
+      "success"
     );
     handleReset();
   };
 
   const handleReset = () => {
-    setClient('');
-    setSearchTerm('');
+    setClient("");
+    setSearchTerm("");
     setFilteredClients(clients);
-    setVolume('');
-    setService('');
-    setMonth('');
-    setCuota('');
-    setVencimiento('');
+    setVolume("");
+    setService("");
+    setMonth("");
+    setCuota("");
+    setVencimiento("");
     setModuleRate(0);
     setTotalModules(0);
     setTotalInPesos(0);
@@ -298,18 +299,18 @@ const BombeoAguaForm = () => {
 
   const monthOptions = useMemo(
     () => [
-      'Enero',
-      'Febrero',
-      'Marzo',
-      'Abril',
-      'Mayo',
-      'Junio',
-      'Julio',
-      'Agosto',
-      'Septiembre',
-      'Octubre',
-      'Noviembre',
-      'Diciembre',
+      "Enero",
+      "Febrero",
+      "Marzo",
+      "Abril",
+      "Mayo",
+      "Junio",
+      "Julio",
+      "Agosto",
+      "Septiembre",
+      "Octubre",
+      "Noviembre",
+      "Diciembre",
     ],
     []
   );
@@ -349,9 +350,9 @@ const BombeoAguaForm = () => {
                   <ListGroup
                     className="position-absolute client-dropdown"
                     style={{
-                      maxHeight: '200px',
-                      overflowY: 'auto',
-                      width: '100%',
+                      maxHeight: "200px",
+                      overflowY: "auto",
+                      width: "100%",
                       zIndex: 1000,
                     }}
                     role="listbox"
@@ -365,7 +366,7 @@ const BombeoAguaForm = () => {
                           role="option"
                           aria-selected={client.id === client}
                         >
-                          {client.persona?.nombre} {client.persona?.apellido} -{' '}
+                          {client.persona?.nombre} {client.persona?.apellido} -{" "}
                           {client.persona?.dni}
                         </ListGroup.Item>
                       ))
@@ -386,7 +387,7 @@ const BombeoAguaForm = () => {
           <h4 className="mb-4 text-secondary font-weight-bold">
             Historial de Períodos
           </h4>
-          <div className="table-responsive"> {/* Contenedor para desplazamiento horizontal */}
+          <div className="table-responsive">
             <Table striped bordered hover className="mt-2">
               <thead>
                 <tr>
@@ -427,7 +428,7 @@ const BombeoAguaForm = () => {
                     <tr key={index}>
                       <td>{index + 1}</td>
                       <td>
-                        {periodo.cliente?.persona?.nombre}{' '}
+                        {periodo.cliente?.persona?.nombre}{" "}
                         {periodo.cliente?.persona?.apellido}
                       </td>
                       <td>{periodo.cliente.persona.dni}</td>
@@ -435,16 +436,22 @@ const BombeoAguaForm = () => {
                       <td>{periodo.año}</td>
                       <td>{periodo.cantidad}</td>
                       <td>{periodo.cuota}</td>
-                      <td>{periodo.i_debito}</td>
-                      <td>{periodo.i_descuento}</td>
-                      <td>{periodo.i_recargo}</td>
-                      <td>{(periodo.i_debito - periodo.i_descuento + periodo.i_recargo).toFixed(2)}</td>
+                      <td>{periodo.i_debito.toFixed(2)}</td>
+                      <td>{periodo.i_descuento.toFixed(2)}</td>
+                      <td>{periodo.i_recargo_actualizado.toFixed(2)}</td>
+                      <td>{(periodo.total || 0).toFixed(2)}</td>
                       <td>
-                        {new Date(periodo.f_vencimiento).toLocaleDateString()}
+                        {periodo.f_vencimiento
+                          ? new Date(periodo.f_vencimiento).toLocaleDateString()
+                          : "Sin fecha"}
                       </td>
                       <td>{periodo.n_recibo_generado}</td>
                       <td>{periodo.condicion_pago}</td>
-                      <td>{periodo.f_pago}</td>
+                      <td>
+                        {periodo.f_pago
+                          ? new Date(periodo.f_pago).toLocaleDateString()
+                          : "No Pago"}
+                      </td>
                     </tr>
                   ))
                 ) : (
@@ -462,12 +469,10 @@ const BombeoAguaForm = () => {
               <CustomButton
                 variant="outline-secondary"
                 onClick={() =>
-                  setRecordsLimit(
-                    recordsLimit === 6 ? periodos.length : 6
-                  )
+                  setRecordsLimit(recordsLimit === 6 ? periodos.length : 6)
                 }
               >
-                {recordsLimit === 6 ? 'Mostrar más' : 'Mostrar menos'}
+                {recordsLimit === 6 ? "Mostrar más" : "Mostrar menos"}
               </CustomButton>
             </div>
           )}
@@ -479,7 +484,7 @@ const BombeoAguaForm = () => {
             <Col md={6}>
               <Form.Group controlId="volume">
                 <Form.Label className="font-weight-bold">
-                  Volumen de Agua Bombeada (m³){' '}
+                  Volumen de Agua Bombeada (m³){" "}
                   <span className="text-danger">*</span>
                 </Form.Label>
                 <InputGroup>
@@ -536,8 +541,7 @@ const BombeoAguaForm = () => {
               </h4>
               <Form.Group controlId="month">
                 <Form.Label className="font-weight-bold">
-                  Mes de Facturación{' '}
-                  <span className="text-danger">*</span>
+                  Mes de Facturación <span className="text-danger">*</span>
                 </Form.Label>
                 <Form.Control
                   as="select"
@@ -573,8 +577,7 @@ const BombeoAguaForm = () => {
 
               <Form.Group controlId="vencimiento" className="mt-3">
                 <Form.Label className="font-weight-bold">
-                  Fecha de Vencimiento{' '}
-                  <span className="text-danger">*</span>
+                  Fecha de Vencimiento <span className="text-danger">*</span>
                 </Form.Label>
                 <Form.Control
                   type="date"
@@ -598,12 +601,10 @@ const BombeoAguaForm = () => {
                 <h1 className="display-4 font-weight-bold text-primary mb-0">
                   AR$ {totalInPesos.toFixed(2)}
                 </h1>
-                <h3 className="text-secondary">
-                  {totalModules} Módulos
-                </h3>
+                <h3 className="text-secondary">{totalModules} Módulos</h3>
                 <p className="text-muted">
-                  Cliente: {selectedClient?.nombre}{' '}
-                  {selectedClient?.apellido} <br />
+                  Cliente: {selectedClient?.nombre} {selectedClient?.apellido}{" "}
+                  <br />
                   DNI/CUIT: {selectedClient?.dni} <br />
                   Servicio: {getServiceNameById(service)} <br />
                   Volumen: {volume} m³ ({volume * 1000} litros) <br />
