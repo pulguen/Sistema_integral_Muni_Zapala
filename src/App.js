@@ -15,6 +15,8 @@ import BombeoAgua from './features/facturacion/components/BombeoAgua/BombeoAgua.
 import About from './components/layout/Footer/About.jsx';
 import Usuarios from './features/Users/Components/Usuarios.jsx';
 import PeriodosHistorial from './features/facturacion/components/Periodos/PeriodosHistorial.jsx';
+import Roles from './features/Users/Components/Roles.jsx'
+import Permisos from './features/Users/Components/Permisos.jsx'
 
 // Importamos los Proveedores
 import { FacturacionProvider } from './context/FacturacionContext';
@@ -87,11 +89,16 @@ function AppContent() {
 
           {/* Rutas Usuarios */}
           <Route
-            path="/usuarios"
+            path="/usuarios/*"
             element={
               <GlobalLayout>
                 <MainLayout section="usuarios">
-                  <Usuarios />
+                  <Routes>
+                    <Route index element={<Usuarios />} />
+                    <Route path="roles" element={<Roles />} />
+                    <Route path="permisos" element={<Permisos />} />
+                    {/* Puedes agregar más subrutas aquí */}
+                  </Routes>
                 </MainLayout>
               </GlobalLayout>
             }
