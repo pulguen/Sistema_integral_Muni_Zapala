@@ -1,113 +1,42 @@
-import React, { useState, useEffect, useCallback } from 'react';
+// src/features/Users/Components/Usuarios.jsx
+
+import React, { useState, useContext, useMemo, useCallback, useEffect } from 'react';
+import { Form, Breadcrumb, Button, Table } from 'react-bootstrap';
 import Swal from 'sweetalert2';
-import { Table, Form, Breadcrumb } from 'react-bootstrap';
 import { FaEdit, FaTrash, FaPlus, FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 import NewUserModal from '../../../components/common/modals/NewUserModal.jsx';
 import EditUserModal from '../../../components/common/modals/EditUserModal.jsx';
 import CustomButton from '../../../components/common/botons/CustomButton.jsx';
 import Loading from '../../../components/common/loading/Loading.jsx';
-import customFetch from '../../../context/CustomFetch.js';
+import { UsersContext } from '../../../context/UsersContext.jsx';
+import { useTable, useSortBy, usePagination, useGlobalFilter } from 'react-table';
 
 export default function Usuarios() {
-  const [usuarios, setUsuarios] = useState([]);
-  const [cargando, setCargando] = useState(true);
+  const {
+    usuarios,
+    cargandoUsuarios,
+    deleteUsuario,
+    addUsuario,
+  } = useContext(UsersContext);
+
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortConfig, setSortConfig] = useState({
-    key: 'id',
-    direction: 'asc',
-  });
 
-  const fetchUsuarios = useCallback(async () => {
-    try {
-      const data = await customFetch('/users', 'GET');
-      if (Array.isArray(data)) {
-        setUsuarios(data);
-      } else {
-        console.error('Error: La respuesta no es un arreglo:', data);
-        setUsuarios([]);
-      }
-    } catch (error) {
-      Swal.fire('Error', 'Error al obtener usuarios.', 'error');
-      console.error('Error al obtener usuarios:', error);
-    } finally {
-      setCargando(false);
-    }
-  }, []);
+  const filteredUsuarios = useMemo(() => {
+    if (!searchTerm) return usuarios;
+    return usuarios.filter((usuario) => {
+      const nombreCompleto = `${usuario.name}`.toLowerCase();
+      const email = usuario.email?.toLowerCase() || '';
+      return (
+        nombreCompleto.includes(searchTerm.toLowerCase()) ||
+        email.includes(searchTerm.toLowerCase())
+      );
+    });
+  }, [usuarios, searchTerm]);
 
-  useEffect(() => {
-    fetchUsuarios();
-  }, [fetchUsuarios]);
-
-  const filteredUsuarios = usuarios.filter((usuario) => {
-    const nombreCompleto = `${usuario.name}`.toLowerCase();
-    const email = usuario.email?.toLowerCase() || '';
-    return nombreCompleto.includes(searchTerm.toLowerCase()) || email.includes(searchTerm);
-  });
-
-  const sortedUsuarios = React.useMemo(() => {
-    let sortableUsuarios = [...filteredUsuarios];
-    if (sortConfig !== null) {
-      sortableUsuarios.sort((a, b) => {
-        const aKey = a[sortConfig.key];
-        const bKey = b[sortConfig.key];
-
-        if (aKey < bKey) {
-          return sortConfig.direction === 'asc' ? -1 : 1;
-        }
-        if (aKey > bKey) {
-          return sortConfig.direction === 'asc' ? 1 : -1;
-        }
-        return 0;
-      });
-    }
-    return sortableUsuarios;
-  }, [filteredUsuarios, sortConfig]);
-
-  const requestSort = (key) => {
-    let direction = 'asc';
-    if (sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc';
-    }
-    setSortConfig({ key, direction });
-  };
-
-  const handleAddUser = async (newUser) => {
-    try {
-      await customFetch('/users', 'POST', newUser);
-      await fetchUsuarios();
-      setShowAddModal(false);
-      Swal.fire('Éxito', 'Usuario agregado exitosamente.', 'success');
-    } catch (error) {
-      Swal.fire('Error', 'Hubo un problema al agregar el usuario.', 'error');
-      console.error('Error al agregar usuario:', error);
-    }
-  };
-
-  const handleEditUser = async (updatedUser) => {
-    try {
-      const payload = {
-        name: updatedUser.name,
-        email: updatedUser.email,
-      };
-
-      if (updatedUser.password) {
-        payload.password = updatedUser.password;
-      }
-
-      await customFetch(`/users/${updatedUser.id}`, 'PUT', payload);
-      await fetchUsuarios();
-      setShowEditModal(false);
-      Swal.fire('Éxito', 'Usuario modificado exitosamente.', 'success');
-    } catch (error) {
-      Swal.fire('Error', 'Hubo un problema al modificar el usuario.', 'error');
-      console.error('Error al modificar usuario:', error);
-    }
-  };
-
-  const onDelete = async (id) => {
+  const handleDeleteUser = useCallback(async (id) => {
     try {
       const result = await Swal.fire({
         title: '¿Estás seguro?',
@@ -121,22 +50,117 @@ export default function Usuarios() {
       });
 
       if (result.isConfirmed) {
-        await customFetch(`/users/${id}`, 'DELETE');
-        await fetchUsuarios();
+        await deleteUsuario(id);
         Swal.fire('Eliminado!', 'El usuario ha sido eliminado.', 'success');
       }
     } catch (error) {
       Swal.fire('Error', 'Hubo un problema al eliminar el usuario.', 'error');
       console.error('Error al eliminar usuario:', error);
     }
-  };
+  }, [deleteUsuario]);
 
-  const getSortIcon = (key) => {
-    if (sortConfig.key === key) {
-      return sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />;
+  const handleSelectUser = useCallback((user) => {
+    setSelectedUser(user);
+    setShowEditModal(true);
+  }, []);
+
+  const columnsUsuarios = useMemo(
+    () => [
+      {
+        Header: 'Nombre',
+        accessor: 'name',
+      },
+      {
+        Header: 'Email',
+        accessor: 'email',
+      },
+      {
+        Header: 'Roles',
+        accessor: 'roles',
+        Cell: ({ value }) =>
+          Array.isArray(value) && value.length > 0
+            ? value.map((role) => role.name).join(', ')
+            : 'Sin roles',
+      },
+      {
+        Header: 'Permisos',
+        accessor: 'permissions',
+        Cell: ({ value }) =>
+          Array.isArray(value) && value.length > 0
+            ? value.join(', ')
+            : 'Sin permisos',
+      },
+      {
+        Header: 'Acciones',
+        accessor: 'acciones',
+        disableSortBy: true,
+        Cell: ({ row }) => (
+          <>
+            <CustomButton
+              variant="warning"
+              size="sm"
+              onClick={() => handleSelectUser(row.original)}
+              aria-label={`Editar Usuario ${row.original.id}`}
+              className="me-2"
+            >
+              <FaEdit />
+            </CustomButton>
+            <CustomButton
+              variant="danger"
+              size="sm"
+              onClick={() => handleDeleteUser(row.original.id)}
+              aria-label={`Eliminar Usuario ${row.original.id}`}
+            >
+              <FaTrash />
+            </CustomButton>
+          </>
+        ),
+      },
+    ],
+    [handleDeleteUser, handleSelectUser]
+  );
+
+  const {
+    getTableProps,
+    getTableBodyProps,
+    headerGroups,
+    prepareRow,
+    page,
+    canPreviousPage,
+    canNextPage,
+    pageOptions,
+    pageCount,
+    gotoPage,
+    nextPage,
+    previousPage,
+    setPageSize,
+    state: { pageIndex, pageSize },
+    setGlobalFilter,
+  } = useTable(
+    {
+      columns: columnsUsuarios,
+      data: filteredUsuarios,
+      initialState: { pageIndex: 0, pageSize: 10 },
+    },
+    useGlobalFilter,
+    useSortBy,
+    usePagination
+  );
+
+  useEffect(() => {
+    setGlobalFilter(searchTerm || undefined);
+  }, [searchTerm, setGlobalFilter]);
+
+  const handleAddUser = useCallback(async (newUser) => {
+    try {
+      await addUsuario(newUser);
+      Swal.fire('Éxito', 'Usuario agregado exitosamente.', 'success');
+      setShowAddModal(false);
+    } catch (error) {
+      Swal.fire('Error', 'Hubo un problema al agregar el usuario.', 'error');
+      console.error('Error al agregar usuario:', error);
     }
-    return <FaSort />;
-  };
+  }, [addUsuario]);
 
   return (
     <div className="table-responsive mt-2 usuarios-section">
@@ -153,64 +177,148 @@ export default function Usuarios() {
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
         className="mb-3 search-input"
+        aria-label="Buscar Usuario"
+        autoComplete="off"
       />
 
-      <CustomButton onClick={() => setShowAddModal(true)} className="mb-3">
+      <CustomButton
+        onClick={() => setShowAddModal(true)}
+        className="mb-3"
+        aria-label="Agregar Usuario"
+      >
         <FaPlus className="me-2" />
         Agregar Usuario
       </CustomButton>
 
-      {cargando ? (
+      {cargandoUsuarios ? (
         <Loading />
       ) : (
-        <Table striped bordered hover className="custom-table">
+        <Table {...getTableProps()} striped bordered hover className="custom-table">
           <thead>
-            <tr>
-              <th onClick={() => requestSort('name')}>Nombre {getSortIcon('name')}</th>
-              <th onClick={() => requestSort('email')}>Email {getSortIcon('email')}</th>
-              <th>Roles</th>
-              <th>Permisos</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sortedUsuarios.map((usuario) => (
-              <tr key={usuario.id}>
-                <td>{usuario.name}</td>
-                <td>{usuario.email}</td>
-                <td>
-                  {Array.isArray(usuario.roles) && usuario.roles.length > 0
-                    ? usuario.roles.map((role) => role.name).join(', ')
-                    : 'Sin roles'}
-                </td>
-                <td>
-                  {Array.isArray(usuario.permissions) && usuario.permissions.length > 0
-                    ? usuario.permissions.map((permiso) => permiso).join(', ')
-                    : 'Sin permisos'}
-                </td>
-                <td>
-                  <CustomButton
-                    variant="warning"
-                    size="sm"
-                    onClick={() => {
-                      setSelectedUser(usuario);
-                      setShowEditModal(true);
-                    }}
+            {headerGroups.map((headerGroup) => (
+              <tr {...headerGroup.getHeaderGroupProps()} key={headerGroup.id}>
+                {headerGroup.headers.map((column) => (
+                  <th
+                    {...column.getHeaderProps(column.getSortByToggleProps())}
+                    key={column.id}
+                    style={{ cursor: column.canSort ? 'pointer' : 'default' }}
+                    aria-label={`Ordenar por ${column.render('Header')}`}
                   >
-                    <FaEdit />
-                  </CustomButton>
-                  <CustomButton
-                    variant="danger"
-                    size="sm"
-                    onClick={() => onDelete(usuario.id)}
-                  >
-                    <FaTrash />
-                  </CustomButton>
-                </td>
+                    {column.render('Header')}
+                    {column.canSort ? (
+                      column.isSorted ? (
+                        column.isSortedDesc ? (
+                          <FaSortDown className="ms-2" />
+                        ) : (
+                          <FaSortUp className="ms-2" />
+                        )
+                      ) : (
+                        <FaSort className="ms-2" />
+                      )
+                    ) : null}
+                  </th>
+                ))}
               </tr>
             ))}
+          </thead>
+          <tbody {...getTableBodyProps()}>
+            {page.length > 0 ? (
+              page.map((row) => {
+                prepareRow(row);
+                return (
+                  <tr
+                    {...row.getRowProps()}
+                    key={row.id}
+                    aria-label={`Detalles del Usuario ${row.original.id}`}
+                  >
+                    {row.cells.map((cell) => (
+                      <td {...cell.getCellProps()} key={cell.column.id}>
+                        {cell.render('Cell')}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })
+            ) : (
+              <tr>
+                <td colSpan="5" className="text-center">
+                  No se encontraron usuarios.
+                </td>
+              </tr>
+            )}
           </tbody>
         </Table>
+      )}
+
+      {!cargandoUsuarios && usuarios.length > 0 && (
+        <div className="pagination d-flex justify-content-between align-items-center">
+          <div>
+            <Button
+              onClick={() => gotoPage(0)}
+              disabled={!canPreviousPage}
+              className="me-2"
+              aria-label="Ir a la primera página"
+            >
+              {'<<'}
+            </Button>
+            <Button
+              onClick={() => previousPage()}
+              disabled={!canPreviousPage}
+              className="me-2"
+              aria-label="Ir a la página anterior"
+            >
+              {'<'}
+            </Button>
+            <Button
+              onClick={() => nextPage()}
+              disabled={!canNextPage}
+              className="me-2"
+              aria-label="Ir a la página siguiente"
+            >
+              {'>'}
+            </Button>
+            <Button
+              onClick={() => gotoPage(pageCount - 1)}
+              disabled={!canNextPage}
+              aria-label="Ir a la última página"
+            >
+              {'>>'}
+            </Button>
+          </div>
+          <span>
+            Página{' '}
+            <strong>
+              {pageIndex + 1} de {pageOptions.length}
+            </strong>{' '}
+          </span>
+          <span>
+            | Ir a la página:{' '}
+            <input
+              type="number"
+              defaultValue={pageIndex + 1}
+              onChange={(e) => {
+                const pageNumber = e.target.value ? Number(e.target.value) - 1 : 0;
+                gotoPage(pageNumber);
+              }}
+              style={{ width: '100px' }}
+              aria-label="Ir a la página"
+            />
+          </span>
+          <Form.Select
+            value={pageSize}
+            onChange={(e) => {
+              setPageSize(Number(e.target.value));
+            }}
+            aria-label="Seleccione el número de filas por página"
+            style={{ width: '150px' }}
+          >
+            {[10, 20, 30, 40, 50].map((size) => (
+              <option key={size} value={size}>
+                Mostrar {size}
+              </option>
+            ))}
+          </Form.Select>
+        </div>
       )}
 
       <NewUserModal
@@ -224,7 +332,6 @@ export default function Usuarios() {
           show={showEditModal}
           handleClose={() => setShowEditModal(false)}
           userData={selectedUser}
-          handleSubmit={handleEditUser}
         />
       )}
     </div>

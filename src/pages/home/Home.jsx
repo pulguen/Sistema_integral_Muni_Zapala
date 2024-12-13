@@ -41,6 +41,15 @@ const Home = () => {
           route="/usuarios"
           variant="info"
         />
+
+        {/* Nueva Card para el subsistema de caja */}
+        <CommonCard
+          title="Sistema de Caja"
+          description="Registra los movimientos de caja y administra todos los medios de pago disponibles."
+          buttonText="Ir a Caja"
+          route="/caja"
+          variant="dark"
+        />
       </Row>
     </Container>
   );

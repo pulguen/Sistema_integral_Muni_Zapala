@@ -115,14 +115,14 @@ const BombeoAguaForm = () => {
         const i_recargo_actualizado = parseFloat(
           periodo.i_recargo_actualizado || 0
         );
-  
+
         return {
           ...periodo,
           i_recargo_actualizado,
           total: i_debito - i_descuento + i_recargo_actualizado,
         };
       });
-  
+
       setPeriodos(periodosCliente);
     } catch (error) {
       console.error("Error al obtener los períodos:", error);
@@ -135,7 +135,6 @@ const BombeoAguaForm = () => {
       setLoadingPeriodos(false);
     }
   }, []);
-  
 
   useEffect(() => {
     fetchModuleValue();
@@ -143,20 +142,20 @@ const BombeoAguaForm = () => {
   }, [fetchModuleValue, fetchTributoData]);
 
   useEffect(() => {
-    setFilteredClients(
-      clients.filter((client) => {
-        const clientName = `${client.persona?.nombre} ${client.persona?.apellido}`.toLowerCase();
-        const clientDNI = client.persona?.dni
-          ? client.persona.dni.toString()
-          : "";
+    const filtered = clients.filter((client) => {
+      const clientName = `${client.persona?.nombre} ${client.persona?.apellido}`.toLowerCase();
+      const clientDNI = client.persona?.dni
+        ? client.persona.dni.toString()
+        : "";
 
-        return (
-          clientName.includes(searchTerm.toLowerCase()) ||
-          clientDNI.includes(searchTerm)
-        );
-      })
-    );
-    setShowClientList(searchTerm.length > 0);
+      return (
+        clientName.includes(searchTerm.toLowerCase()) ||
+        clientDNI.includes(searchTerm)
+      );
+    });
+
+    setFilteredClients(filtered);
+    setShowClientList(searchTerm.length > 0 && filtered.length > 0);
   }, [searchTerm, clients]);
 
   const filterServicesByClient = useCallback(
@@ -333,18 +332,15 @@ const BombeoAguaForm = () => {
                 ref={clientDropdownRef}
                 className="client-container"
               >
-                <Form.Label className="font-weight-bold">
-                  Cliente <span className="text-danger">*</span>
-                </Form.Label>
                 <Form.Control
                   type="text"
                   value={searchTerm}
                   placeholder="Buscar cliente por nombre o DNI/CUIT"
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  onClick={() => setShowClientList(true)}
                   required
                   className="rounded"
                   aria-label="Buscar cliente por nombre o DNI/CUIT"
+                  autoComplete="off" // Desactiva autocompletado del navegador
                 />
                 {showClientList && (
                   <ListGroup
@@ -382,261 +378,260 @@ const BombeoAguaForm = () => {
           </Row>
         </section>
 
-        {/* Tabla de Períodos del Cliente */}
-        <section className="form-section mb-4">
-          <h4 className="mb-4 text-secondary font-weight-bold">
-            Historial de Períodos
-          </h4>
-          <div className="table-responsive">
-            <Table striped bordered hover className="mt-2">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Cliente</th>
-                  <th>DNI/CUIT</th>
-                  <th>Mes</th>
-                  <th>Año</th>
-                  <th>Volumen</th>
-                  <th>Cuota</th>
-                  <th>Importe</th>
-                  <th>Descuento</th>
-                  <th>Recargo</th>
-                  <th>Total</th>
-                  <th>Vencimiento</th>
-                  <th>Recibo Generado</th>
-                  <th>Condición</th>
-                  <th>Fecha de Pago</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loadingPeriodos ? (
-                  <tr>
-                    <td colSpan="15" className="text-center">
-                      <Spinner animation="border" role="status">
-                        <span className="visually-hidden">Cargando...</span>
-                      </Spinner>
-                    </td>
-                  </tr>
-                ) : !client ? (
-                  <tr>
-                    <td colSpan="15" className="text-center text-muted">
-                      No hay cliente seleccionado.
-                    </td>
-                  </tr>
-                ) : periodos.length > 0 ? (
-                  periodos.slice(0, recordsLimit).map((periodo, index) => (
-                    <tr key={index}>
-                      <td>{index + 1}</td>
-                      <td>
-                        {periodo.cliente?.persona?.nombre}{" "}
-                        {periodo.cliente?.persona?.apellido}
-                      </td>
-                      <td>{periodo.cliente.persona.dni}</td>
-                      <td>{periodo.mes}</td>
-                      <td>{periodo.año}</td>
-                      <td>{periodo.cantidad}</td>
-                      <td>{periodo.cuota}</td>
-                      <td>{periodo.i_debito.toFixed(2)}</td>
-                      <td>{periodo.i_descuento.toFixed(2)}</td>
-                      <td>{periodo.i_recargo_actualizado.toFixed(2)}</td>
-                      <td>{(periodo.total || 0).toFixed(2)}</td>
-                      <td>
-                        {periodo.f_vencimiento
-                          ? new Date(periodo.f_vencimiento).toLocaleDateString()
-                          : "Sin fecha"}
-                      </td>
-                      <td>{periodo.n_recibo_generado}</td>
-                      <td>{periodo.condicion_pago}</td>
-                      <td>
-                        {periodo.f_pago
-                          ? new Date(periodo.f_pago).toLocaleDateString()
-                          : "No Pago"}
-                      </td>
+        {/* Solo mostrar el resto del formulario si hay un cliente seleccionado */}
+        {client && (
+          <>
+            {/* Tabla de Períodos del Cliente */}
+            <section className="form-section mb-4">
+              <h4 className="mb-4 text-secondary font-weight-bold">
+                Historial de Períodos
+              </h4>
+              <div className="table-responsive">
+                <Table striped bordered hover className="mt-2">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Cliente</th>
+                      <th>DNI/CUIT</th>
+                      <th>Mes</th>
+                      <th>Año</th>
+                      <th>Volumen</th>
+                      <th>Cuota</th>
+                      <th>Importe</th>
+                      <th>Descuento</th>
+                      <th>Recargo</th>
+                      <th>Total</th>
+                      <th>Vencimiento</th>
+                      <th>Recibo Generado</th>
+                      <th>Condición</th>
+                      <th>Fecha de Pago</th>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="15" className="text-center text-muted">
-                      No hay períodos para este cliente.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </Table>
-          </div>
-          {periodos.length > 6 && (
-            <div className="text-center mt-2">
+                  </thead>
+                  <tbody>
+                    {loadingPeriodos ? (
+                      <tr>
+                        <td colSpan="15" className="text-center">
+                          <Spinner animation="border" role="status">
+                            <span className="visually-hidden">Cargando...</span>
+                          </Spinner>
+                        </td>
+                      </tr>
+                    ) : periodos.length > 0 ? (
+                      periodos.slice(0, recordsLimit).map((periodo, index) => (
+                        <tr key={index}>
+                          <td>{index + 1}</td>
+                          <td>
+                            {periodo.cliente?.persona?.nombre}{" "}
+                            {periodo.cliente?.persona?.apellido}
+                          </td>
+                          <td>{periodo.cliente.persona.dni}</td>
+                          <td>{periodo.mes}</td>
+                          <td>{periodo.año}</td>
+                          <td>{periodo.cantidad}</td>
+                          <td>{periodo.cuota}</td>
+                          <td>{periodo.i_debito.toFixed(2)}</td>
+                          <td>{periodo.i_descuento.toFixed(2)}</td>
+                          <td>{periodo.i_recargo_actualizado.toFixed(2)}</td>
+                          <td>{(periodo.total || 0).toFixed(2)}</td>
+                          <td>
+                            {periodo.f_vencimiento
+                              ? new Date(periodo.f_vencimiento).toLocaleDateString()
+                              : "Sin fecha"}
+                          </td>
+                          <td>{periodo.n_recibo_generado}</td>
+                          <td>{periodo.condicion_pago}</td>
+                          <td>
+                            {periodo.f_pago
+                              ? new Date(periodo.f_pago).toLocaleDateString()
+                              : "No Pago"}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="15" className="text-center text-muted">
+                          No hay períodos para este cliente.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </Table>
+              </div>
+              {periodos.length > 6 && (
+                <div className="text-center mt-2">
+                  <CustomButton
+                    variant="outline-secondary"
+                    onClick={() =>
+                      setRecordsLimit(recordsLimit === 6 ? periodos.length : 6)
+                    }
+                  >
+                    {recordsLimit === 6 ? "Mostrar más" : "Mostrar menos"}
+                  </CustomButton>
+                </div>
+              )}
+            </section>
+
+            {/* Detalles del Servicio */}
+            <section className="form-section mb-4">
+              <Row>
+                <Col md={6}>
+                  <Form.Group controlId="volume">
+                    <Form.Label className="font-weight-bold">
+                      Volumen de Agua Bombeada (m³){" "}
+                      <span className="text-danger">*</span>
+                    </Form.Label>
+                    <InputGroup>
+                      <Form.Control
+                        type="number"
+                        value={volume}
+                        onChange={handleVolumeChange}
+                        placeholder="Ingrese volumen"
+                        required
+                        className="rounded"
+                        aria-label="Volumen de agua bombeada en metros cúbicos"
+                      />
+                      <InputGroup.Text>m³</InputGroup.Text>
+                    </InputGroup>
+                  </Form.Group>
+                </Col>
+
+                <Col md={6}>
+                  <Form.Group controlId="service">
+                    <Form.Label className="font-weight-bold">
+                      Tipo de Servicio
+                    </Form.Label>
+                    <Form.Control
+                      as="select"
+                      value={service}
+                      onChange={(e) => {
+                        setService(e.target.value);
+                        const selectedService = services.find(
+                          (s) => s.id === parseInt(e.target.value)
+                        );
+                        setModuleRate(selectedService?.modulos || 0);
+                      }}
+                      className="rounded"
+                      aria-label="Seleccione un tipo de servicio"
+                    >
+                      <option value="">Seleccione un tipo de servicio</option>
+                      {filteredServices.map((servicio) => (
+                        <option key={servicio.id} value={servicio.id}>
+                          {servicio.nombre}
+                        </option>
+                      ))}
+                    </Form.Control>
+                  </Form.Group>
+                </Col>
+              </Row>
+            </section>
+
+            {/* Información de Factura */}
+            <section className="form-section mb-4">
+              <Row>
+                <Col md={6}>
+                  <h4 className="mb-4 text-secondary font-weight-bold">
+                    Información de Factura
+                  </h4>
+                  <Form.Group controlId="month">
+                    <Form.Label className="font-weight-bold">
+                      Mes de Facturación <span className="text-danger">*</span>
+                    </Form.Label>
+                    <Form.Control
+                      as="select"
+                      value={month}
+                      onChange={(e) => setMonth(e.target.value)}
+                      required
+                      className="rounded"
+                      aria-label="Seleccione el mes de facturación"
+                    >
+                      <option value="">Seleccione un mes</option>
+                      {monthOptions.map((monthName, index) => (
+                        <option key={index} value={monthName}>
+                          {monthName}
+                        </option>
+                      ))}
+                    </Form.Control>
+                  </Form.Group>
+
+                  <Form.Group controlId="cuota" className="mt-3">
+                    <Form.Label className="font-weight-bold">
+                      Cuota <span className="text-danger">*</span>
+                    </Form.Label>
+                    <Form.Control
+                      type="number"
+                      value={cuota}
+                      onChange={handleCuotaChange}
+                      placeholder="Ingrese la cuota"
+                      required
+                      className="rounded"
+                      aria-label="Ingrese la cuota"
+                    />
+                  </Form.Group>
+
+                  <Form.Group controlId="vencimiento" className="mt-3">
+                    <Form.Label className="font-weight-bold">
+                      Fecha de Vencimiento <span className="text-danger">*</span>
+                    </Form.Label>
+                    <Form.Control
+                      type="date"
+                      value={vencimiento}
+                      onChange={(e) => setVencimiento(e.target.value)}
+                      required
+                      className="rounded"
+                      aria-label="Seleccione la fecha de vencimiento"
+                    />
+                  </Form.Group>
+                </Col>
+
+                <Col
+                  md={6}
+                  className="d-flex justify-content-center align-items-center"
+                >
+                  <div className="text-center">
+                    <h4 className="mb-4 text-secondary font-weight-bold">
+                      Total a Pagar
+                    </h4>
+                    <h1 className="display-4 font-weight-bold text-primary mb-0">
+                      AR$ {totalInPesos.toFixed(2)}
+                    </h1>
+                    <h3 className="text-secondary">{totalModules} Módulos</h3>
+                    <p className="text-muted">
+                      Cliente: {selectedClient?.nombre}{" "}
+                      {selectedClient?.apellido} <br />
+                      DNI/CUIT: {selectedClient?.dni} <br />
+                      Servicio: {getServiceNameById(service)} <br />
+                      Volumen: {volume} m³ ({volume * 1000} litros) <br />
+                      Cuota: {cuota} <br />
+                      Mes: {month} <br />
+                      Vencimiento: {vencimiento}
+                    </p>
+                  </div>
+                </Col>
+              </Row>
+            </section>
+
+            {/* Botones de Acción */}
+            <div className="d-flex justify-content-center mt-4">
               <CustomButton
-                variant="outline-secondary"
-                onClick={() =>
-                  setRecordsLimit(recordsLimit === 6 ? periodos.length : 6)
-                }
+                type="submit"
+                variant="secondary"
+                className="me-3 px-5 py-2 font-weight-bold"
+                aria-label="Generar Periodo"
               >
-                {recordsLimit === 6 ? "Mostrar más" : "Mostrar menos"}
+                Generar Periodo
+              </CustomButton>
+              <CustomButton
+                type="reset"
+                variant="outline-secondary"
+                onClick={handleReset}
+                className="px-5 py-2 font-weight-bold"
+                aria-label="Limpiar Formulario"
+              >
+                Limpiar
               </CustomButton>
             </div>
-          )}
-        </section>
-
-        {/* Detalles del Servicio */}
-        <section className="form-section mb-4">
-          <Row>
-            <Col md={6}>
-              <Form.Group controlId="volume">
-                <Form.Label className="font-weight-bold">
-                  Volumen de Agua Bombeada (m³){" "}
-                  <span className="text-danger">*</span>
-                </Form.Label>
-                <InputGroup>
-                  <Form.Control
-                    type="number"
-                    value={volume}
-                    onChange={handleVolumeChange}
-                    placeholder="Ingrese volumen"
-                    required
-                    className="rounded"
-                    aria-label="Volumen de agua bombeada en metros cúbicos"
-                  />
-                  <InputGroup.Text>m³</InputGroup.Text>
-                </InputGroup>
-              </Form.Group>
-            </Col>
-
-            <Col md={6}>
-              <Form.Group controlId="service">
-                <Form.Label className="font-weight-bold">
-                  Tipo de Servicio
-                </Form.Label>
-                <Form.Control
-                  as="select"
-                  value={service}
-                  onChange={(e) => {
-                    setService(e.target.value);
-                    const selectedService = services.find(
-                      (s) => s.id === parseInt(e.target.value)
-                    );
-                    setModuleRate(selectedService?.modulos || 0);
-                  }}
-                  className="rounded"
-                  aria-label="Seleccione un tipo de servicio"
-                >
-                  <option value="">Seleccione un tipo de servicio</option>
-                  {filteredServices.map((servicio) => (
-                    <option key={servicio.id} value={servicio.id}>
-                      {servicio.nombre}
-                    </option>
-                  ))}
-                </Form.Control>
-              </Form.Group>
-            </Col>
-          </Row>
-        </section>
-
-        {/* Información de Factura */}
-        <section className="form-section mb-4">
-          <Row>
-            <Col md={6}>
-              <h4 className="mb-4 text-secondary font-weight-bold">
-                Información de Factura
-              </h4>
-              <Form.Group controlId="month">
-                <Form.Label className="font-weight-bold">
-                  Mes de Facturación <span className="text-danger">*</span>
-                </Form.Label>
-                <Form.Control
-                  as="select"
-                  value={month}
-                  onChange={(e) => setMonth(e.target.value)}
-                  required
-                  className="rounded"
-                  aria-label="Seleccione el mes de facturación"
-                >
-                  <option value="">Seleccione un mes</option>
-                  {monthOptions.map((monthName, index) => (
-                    <option key={index} value={monthName}>
-                      {monthName}
-                    </option>
-                  ))}
-                </Form.Control>
-              </Form.Group>
-
-              <Form.Group controlId="cuota" className="mt-3">
-                <Form.Label className="font-weight-bold">
-                  Cuota <span className="text-danger">*</span>
-                </Form.Label>
-                <Form.Control
-                  type="number"
-                  value={cuota}
-                  onChange={handleCuotaChange}
-                  placeholder="Ingrese la cuota"
-                  required
-                  className="rounded"
-                  aria-label="Ingrese la cuota"
-                />
-              </Form.Group>
-
-              <Form.Group controlId="vencimiento" className="mt-3">
-                <Form.Label className="font-weight-bold">
-                  Fecha de Vencimiento <span className="text-danger">*</span>
-                </Form.Label>
-                <Form.Control
-                  type="date"
-                  value={vencimiento}
-                  onChange={(e) => setVencimiento(e.target.value)}
-                  required
-                  className="rounded"
-                  aria-label="Seleccione la fecha de vencimiento"
-                />
-              </Form.Group>
-            </Col>
-
-            <Col
-              md={6}
-              className="d-flex justify-content-center align-items-center"
-            >
-              <div className="text-center">
-                <h4 className="mb-4 text-secondary font-weight-bold">
-                  Total a Pagar
-                </h4>
-                <h1 className="display-4 font-weight-bold text-primary mb-0">
-                  AR$ {totalInPesos.toFixed(2)}
-                </h1>
-                <h3 className="text-secondary">{totalModules} Módulos</h3>
-                <p className="text-muted">
-                  Cliente: {selectedClient?.nombre} {selectedClient?.apellido}{" "}
-                  <br />
-                  DNI/CUIT: {selectedClient?.dni} <br />
-                  Servicio: {getServiceNameById(service)} <br />
-                  Volumen: {volume} m³ ({volume * 1000} litros) <br />
-                  Cuota: {cuota} <br />
-                  Mes: {month} <br />
-                  Vencimiento: {vencimiento}
-                </p>
-              </div>
-            </Col>
-          </Row>
-        </section>
-
-        {/* Botones de Acción */}
-        <div className="d-flex justify-content-center mt-4">
-          <CustomButton
-            type="submit"
-            variant="secondary"
-            className="me-3 px-5 py-2 font-weight-bold"
-            aria-label="Generar Periodo"
-          >
-            Generar Periodo
-          </CustomButton>
-          <CustomButton
-            type="reset"
-            variant="outline-secondary"
-            onClick={handleReset}
-            className="px-5 py-2 font-weight-bold"
-            aria-label="Limpiar Formulario"
-          >
-            Limpiar
-          </CustomButton>
-        </div>
+          </>
+        )}
       </Form>
     </Card>
   );

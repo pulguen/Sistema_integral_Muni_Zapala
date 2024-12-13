@@ -1,54 +1,79 @@
-import React, { useState, useEffect } from 'react';
+// src/features/Users/Components/RolesList.jsx
+
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Form } from 'react-bootstrap';
 import Swal from 'sweetalert2';
 import customFetch from '../../../context/CustomFetch.js';
 import Loading from '../../../components/common/loading/Loading.jsx';
 import CustomButton from '../../../components/common/botons/CustomButton.jsx';
 
-export default function RolesList({ selectedUser }) {
+export default function RolesList({ userId }) {
   const [roles, setRoles] = useState([]);
-  const [cargando, setCargando] = useState(true);
+  const [cargandoRoles, setCargandoRoles] = useState(true);
   const [selectedRolesIds, setSelectedRolesIds] = useState([]);
+  const [cargandoAsignacion, setCargandoAsignacion] = useState(false);
 
-  useEffect(() => {
-    // Inicializar selectedRolesIds con los roles que ya tiene el usuario
-    if (selectedUser && selectedUser.roles) {
-      const userRoleIds = selectedUser.roles.map((r) => r.id);
-      setSelectedRolesIds(userRoleIds);
-    }
-  }, [selectedUser]);
-
-  const fetchRoles = async () => {
+  const fetchRoles = useCallback(async () => {
+    setCargandoRoles(true);
     try {
-      const rolesData = await customFetch('/roles', 'GET');
-      let rolesArray = [];
-      if (Array.isArray(rolesData)) {
-        if (rolesData[0] && Array.isArray(rolesData[0].data)) {
-          rolesArray = rolesData[0].data;
-        } else if (Array.isArray(rolesData[0])) {
-          rolesArray = rolesData[0];
-        } else if (rolesData.data && Array.isArray(rolesData.data)) {
-          rolesArray = rolesData.data;
+      const data = await customFetch('/roles', 'GET');
+      console.log('Datos de roles:', data);
+      // data = [ [roles], 200 ]
+
+      if (
+        Array.isArray(data) &&
+        data.length === 2 &&
+        Array.isArray(data[0]) &&
+        typeof data[1] === 'number'
+      ) {
+        const [fetchedRoles, status] = data;
+        if (status === 200 && Array.isArray(fetchedRoles)) {
+          setRoles(fetchedRoles);
         } else {
-          rolesArray = rolesData; 
+          console.error('Error: Respuesta inválida para roles:', fetchedRoles, status);
+          Swal.fire('Error', 'Error al obtener roles.', 'error');
+          setRoles([]);
         }
-      } else if (rolesData.data && Array.isArray(rolesData.data)) {
-        rolesArray = rolesData.data;
+      } else {
+        console.error('Error: Respuesta de roles no es [rolesArray, status]:', data);
+        Swal.fire('Error', 'Error al obtener roles.', 'error');
+        setRoles([]);
       }
-      setRoles(rolesArray);
     } catch (error) {
+      Swal.fire('Error', 'Error al obtener roles.', 'error');
       console.error('Error al obtener roles:', error);
-      Swal.fire('Error', 'No se pudieron obtener los roles.', 'error');
+      setRoles([]);
     } finally {
-      setCargando(false);
+      setCargandoRoles(false);
     }
-  };
+  }, []);
+
+  const fetchUserRoles = useCallback(async () => {
+    try {
+      const userData = await customFetch(`/users/${userId}`, 'GET');
+      console.log('Datos del usuario:', userData);
+      // userData es un objeto de usuario
+      if (userData && typeof userData === 'object' && Array.isArray(userData.roles)) {
+        const userRoleIds = userData.roles.map(role => role.id);
+        setSelectedRolesIds(userRoleIds);
+      } else {
+        console.error('Error: El usuario no contiene roles en el formato esperado', userData);
+        Swal.fire('Error', 'Error al obtener roles del usuario.', 'error');
+        setSelectedRolesIds([]);
+      }
+    } catch (error) {
+      Swal.fire('Error', 'Error al obtener roles del usuario.', 'error');
+      console.error('Error al obtener roles del usuario:', error);
+      setSelectedRolesIds([]);
+    }
+  }, [userId]);
 
   useEffect(() => {
     fetchRoles();
-  }, []);
+    fetchUserRoles();
+  }, [fetchRoles, fetchUserRoles]);
 
-  const handleCheckboxChange = (roleId) => {
+  const handleCheckboxChange = useCallback((roleId) => {
     setSelectedRolesIds((prevSelected) => {
       if (prevSelected.includes(roleId)) {
         return prevSelected.filter((id) => id !== roleId);
@@ -56,49 +81,64 @@ export default function RolesList({ selectedUser }) {
         return [...prevSelected, roleId];
       }
     });
-  };
+  }, []);
 
-  const handleSaveChanges = async () => {
+  const handleSaveChanges = useCallback(async () => {
+    setCargandoAsignacion(true);
     try {
-      // Ahora enviamos el id del usuario y el array de roles seleccionados en el body
-      await customFetch(`/users/${selectedUser.id}/roles-sinc`, 'POST', { 
-        id: selectedUser.id, 
-        roles: selectedRolesIds 
+      const data = await customFetch(`/users/${userId}/roles-sinc`, 'POST', {
+        id: userId,
+        roles: selectedRolesIds,
       });
-      Swal.fire('Éxito', 'Roles actualizados exitosamente.', 'success');
+      console.log('Respuesta al actualizar roles:', data);
+      // data es un objeto de usuario con los roles actualizados
+      if (data && typeof data === 'object' && Array.isArray(data.roles)) {
+        Swal.fire('Éxito', 'Roles actualizados exitosamente.', 'success');
+        await fetchUserRoles(); // Refresca los roles del usuario
+      } else {
+        console.error('Error: La respuesta no es un objeto de usuario con roles:', data);
+        Swal.fire('Error', 'No se pudieron actualizar los roles.', 'error');
+      }
     } catch (error) {
-      console.error('Error al actualizar roles del usuario:', error);
       Swal.fire('Error', 'No se pudieron actualizar los roles.', 'error');
+      console.error('Error al actualizar roles del usuario:', error);
+    } finally {
+      setCargandoAsignacion(false);
     }
-  };
+  }, [userId, selectedRolesIds, fetchUserRoles]);
+
+  const memoizedRoles = useMemo(() => roles, [roles]);
+
+  if (cargandoRoles) {
+    return <Loading />;
+  }
+
+  if (!memoizedRoles || memoizedRoles.length === 0) {
+    return <p>No hay roles disponibles para asignar.</p>;
+  }
 
   return (
     <div className="roles-list">
-      {cargando ? (
-        <Loading />
-      ) : (
-        <Form>
-          {roles.length > 0 ? (
-            roles.map((role) => (
-              <Form.Check
-                key={role.id}
-                type="checkbox"
-                id={`role-${role.id}`}
-                label={role.name}
-                checked={selectedRolesIds.includes(role.id)}
-                onChange={() => handleCheckboxChange(role.id)}
-              />
-            ))
-          ) : (
-            <p>No se encontraron roles.</p>
-          )}
-          {roles.length > 0 && (
-            <CustomButton className="mt-3" onClick={handleSaveChanges}>
-              Guardar Cambios
-            </CustomButton>
-          )}
-        </Form>
-      )}
+      <Form>
+        {memoizedRoles.map((role) => (
+          <Form.Check
+            key={role.id}
+            type="checkbox"
+            id={`role-${role.id}`}
+            label={role.name}
+            checked={selectedRolesIds.includes(role.id)}
+            onChange={() => handleCheckboxChange(role.id)}
+          />
+        ))}
+        <CustomButton
+          className="mt-3"
+          onClick={handleSaveChanges}
+          disabled={cargandoAsignacion}
+          aria-label="Guardar Cambios de Roles"
+        >
+          {cargandoAsignacion ? 'Guardando...' : 'Guardar Cambios'}
+        </CustomButton>
+      </Form>
     </div>
   );
 }

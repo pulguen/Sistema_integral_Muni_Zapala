@@ -1,10 +1,14 @@
 // src/features/Users/Components/modals/EditRoleModal.jsx
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { Modal, Button, Form } from 'react-bootstrap';
+import { UsersContext } from '../../../context/UsersContext'; // Importar el contexto
+import Swal from 'sweetalert2';
 import PropTypes from 'prop-types';
 
-export default function EditRoleModal({ show, handleClose, handleSubmit, roleData }) {
+export default function EditRoleModal({ show, handleClose, roleData }) {
+  const { editRole } = useContext(UsersContext); // Consumir la función del contexto
+
   const [updatedRole, setUpdatedRole] = useState({
     id: '',
     name: '',
@@ -15,51 +19,90 @@ export default function EditRoleModal({ show, handleClose, handleSubmit, roleDat
     if (roleData && show) {
       setUpdatedRole({
         id: roleData.id,
-        name: roleData.name,
-        description: roleData.description,
+        name: roleData.name || '',
+        description: roleData.description || '',
       });
     }
   }, [roleData, show]);
 
-  const onSubmit = (e) => {
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setUpdatedRole((prevRole) => ({
+      ...prevRole,
+      [name]: value,
+    }));
+  };
+
+  const onSubmit = async (e) => {
     e.preventDefault();
-    handleSubmit(updatedRole);
+
+    // Validaciones básicas
+    if (!updatedRole.name.trim()) {
+      Swal.fire('Error', 'El nombre del rol es obligatorio.', 'error');
+      return;
+    }
+
+    try {
+      await editRole(updatedRole); // Usar la función del contexto
+      Swal.fire('Éxito', 'Rol modificado exitosamente.', 'success');
+      handleClose();
+    } catch (error) {
+      Swal.fire('Error', 'Hubo un problema al modificar el rol.', 'error');
+      console.error('Error al modificar rol:', error);
+    }
+  };
+
+  const handleModalClose = () => {
+    setUpdatedRole({ id: '', name: '', description: '' });
+    handleClose();
   };
 
   return (
-    <Modal show={show} onHide={handleClose}>
-      <Modal.Header closeButton>
-        <Modal.Title>Editar Rol</Modal.Title>
-      </Modal.Header>
-      <Modal.Body>
-        <Form onSubmit={onSubmit}>
-          <Form.Group controlId="name">
+    <Modal show={show} onHide={handleModalClose} backdrop="static" keyboard={false}>
+      <Form onSubmit={onSubmit}>
+        <Modal.Header closeButton>
+          <Modal.Title>Editar Rol</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {/* Campo de Nombre del Rol */}
+          <Form.Group controlId="editRoleName">
             <Form.Label>Nombre del Rol</Form.Label>
             <Form.Control
               type="text"
+              name="name"
               value={updatedRole.name}
-              onChange={(e) => setUpdatedRole({ ...updatedRole, name: e.target.value })}
-              required
+              onChange={handleChange}
               placeholder="Ingrese el nombre del rol"
+              required
+              aria-label="Nombre del Rol"
             />
           </Form.Group>
 
-          <Form.Group controlId="description" className="mt-3">
+          {/* Campo de Descripción del Rol */}
+          <Form.Group controlId="editRoleDescription" className="mt-3">
             <Form.Label>Descripción</Form.Label>
             <Form.Control
               as="textarea"
-              rows={3}
+              name="description"
               value={updatedRole.description}
-              onChange={(e) => setUpdatedRole({ ...updatedRole, description: e.target.value })}
+              onChange={handleChange}
+              rows={3}
               placeholder="Ingrese la descripción del rol"
+              aria-label="Descripción del Rol"
             />
           </Form.Group>
-
-          <Button variant="primary" type="submit" className="mt-4">
+        </Modal.Body>
+        <Modal.Footer>
+          {/* Botón para Cerrar el Modal */}
+          <Button variant="secondary" onClick={handleModalClose} aria-label="Cancelar Edición Rol">
+            Cancelar
+          </Button>
+          {/* Botón para Enviar el Formulario */}
+          <Button variant="primary" type="submit" aria-label="Guardar Cambios Rol">
             Guardar Cambios
           </Button>
-        </Form>
-      </Modal.Body>
+        </Modal.Footer>
+      </Form>
     </Modal>
   );
 }
@@ -67,7 +110,6 @@ export default function EditRoleModal({ show, handleClose, handleSubmit, roleDat
 EditRoleModal.propTypes = {
   show: PropTypes.bool.isRequired,
   handleClose: PropTypes.func.isRequired,
-  handleSubmit: PropTypes.func.isRequired,
   roleData: PropTypes.shape({
     id: PropTypes.number,
     name: PropTypes.string,

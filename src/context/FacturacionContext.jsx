@@ -1,4 +1,4 @@
-// src/context/FacturacionContext.jsx 
+// src/context/FacturacionContext.jsx
 
 import React, { createContext, useState, useCallback, useEffect } from "react";
 import customFetch from "./CustomFetch";
@@ -11,8 +11,6 @@ export const FacturacionProvider = ({ children }) => {
   const [servicios, setServicios] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-
-  // Nuevo Estado para Módulos Registrados
   const [modules, setModules] = useState({});
 
   // Obtener clientes
@@ -56,14 +54,13 @@ export const FacturacionProvider = ({ children }) => {
     }
   }, []);
 
-  // Obtener períodos
+  // Obtener períodos (ejemplo existente)
   const fetchPeriodosByClienteYServicio = useCallback(
     async (clienteId, servicioId, tributoId) => {
       try {
         const url = `/cuentas/cliente/${clienteId}/periodos?servicio_id=${servicioId}&tributo_id=${tributoId}`;
         const data = await customFetch(url);
         
-        // Verificar si 'data' es una matriz de matrices
         let periods = [];
         if (Array.isArray(data)) {
           data.forEach((item) => {
@@ -99,7 +96,6 @@ export const FacturacionProvider = ({ children }) => {
     []
   );
 
-  // **Nueva Función: registerModule**
   const registerModule = useCallback((moduleName, moduleData) => {
     setModules((prevModules) => ({
       ...prevModules,
@@ -107,130 +103,49 @@ export const FacturacionProvider = ({ children }) => {
     }));
   }, []);
 
-  // Agregar fetchClienteById
   const fetchClienteById = useCallback(async (clienteId) => {
     setLoading(true);
     try {
       const data = await customFetch(`/cuentas/cliente/${clienteId}`);
       setError(null);
-      return data; // Retornamos los datos para usarlos en el componente
+      return data;
     } catch (error) {
       console.error("Error al obtener el cliente:", error);
       setError("Error al obtener el cliente.");
-      throw error; // Relanzamos el error para manejarlo en el componente
+      throw error;
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // **Nuevas Funciones para Gráficos**
-
-  // 1. Obtener periodos por servicio
-  const getPeriodosByServicio = useCallback(async () => {
+  // Obtener recibo por número
+  const fetchReciboByNumero = useCallback(async (numero) => {
     try {
-      const data = await customFetch("/periodos/servicio");
-      // Procesa los datos según tus necesidades
-      return {
-        labels: Object.keys(data),
-        series: Object.values(data),
-      };
-    } catch (err) {
-      console.error("Error al obtener periodos por servicio:", err);
-      throw err;
+      const data = await customFetch(`/recibos?numero=${numero}`);
+      return data; 
+    } catch (error) {
+      console.error("Error al obtener el recibo:", error);
+      setError("Error al obtener el recibo.");
+      throw error;
     }
   }, []);
 
-  // 2. Obtener periodos por mes
-  const getPeriodosByMonth = useCallback(async () => {
+  // Obtener varios recibos dada una lista de números
+  const fetchRecibosByNumeros = useCallback(async (numeros) => {
     try {
-      const data = await customFetch("/periodos/mes");
-      return {
-        categories: data.meses,
-        series: [
-          {
-            name: 'Periodos',
-            data: data.counts,
-          },
-        ],
-      };
-    } catch (err) {
-      console.error("Error al obtener periodos por mes:", err);
-      throw err;
+      const promises = numeros.map((num) => fetchReciboByNumero(num));
+      const results = await Promise.all(promises);
+      // results es algo como [Array(…), 200, Array(…), 200, ...]
+      // Solo retornamos directamente results, lo filtraremos en el componente.
+      return results;
+    } catch (error) {
+      console.error("Error al obtener los recibos:", error);
+      setError("Error al obtener los recibos.");
+      throw error;
     }
-  }, []);
+  }, [fetchReciboByNumero]);
 
-  // 3. Obtener tendencia de periodos
-  const getTrendPeriodos = useCallback(async () => {
-    try {
-      const data = await customFetch("/periodos/trend");
-      return {
-        categories: data.anos,
-        series: [
-          {
-            name: 'Tendencia',
-            data: data.counts,
-          },
-        ],
-      };
-    } catch (err) {
-      console.error("Error al obtener la tendencia de periodos:", err);
-      throw err;
-    }
-  }, []);
-
-  // 4. Obtener ingresos por servicio
-  const getRevenueByService = useCallback(async () => {
-    try {
-      const data = await customFetch("/ingresos/servicio");
-      return {
-        labels: Object.keys(data),
-        series: Object.values(data),
-      };
-    } catch (err) {
-      console.error("Error al obtener ingresos por servicio:", err);
-      throw err;
-    }
-  }, []);
-
-  // 5. Obtener distribución de ingresos
-  const getIncomeDistribution = useCallback(async () => {
-    try {
-      const data = await customFetch("/ingresos/distribucion");
-      return {
-        labels: Object.keys(data),
-        series: Object.values(data),
-      };
-    } catch (err) {
-      console.error("Error al obtener distribución de ingresos:", err);
-      throw err;
-    }
-  }, []);
-
-  // 6. Obtener datos para el mapa de calor
-  const getHeatmapData = useCallback(async () => {
-    try {
-      const data = await customFetch("/periodos/heatmap");
-      return data; // Asegúrate de que el formato de datos es compatible con el componente HeatmapChart
-    } catch (err) {
-      console.error("Error al obtener datos para el mapa de calor:", err);
-      throw err;
-    }
-  }, []);
-
-  // 7. Obtener KPIs
-  const getKpis = useCallback(() => {
-    // Aquí puedes calcular o retornar directamente los KPIs si ya están disponibles
-    // Por ejemplo:
-    const totalPeriodos = clientes.length; // Ejemplo
-    const totalIngresos = clientes.reduce((acc, cliente) => acc + (cliente.ingresos || 0), 0); // Asegúrate de que 'ingresos' existe
-    const promedioMensual = totalIngresos / 12; // Ejemplo
-
-    return {
-      totalPeriodos,
-      totalIngresos,
-      promedioMensual,
-    };
-  }, [clientes]);
+  // Funciones de gráficos omitidas por brevedad (mantener si las usas)
 
   useEffect(() => {
     fetchClientes();
@@ -245,19 +160,14 @@ export const FacturacionProvider = ({ children }) => {
     fetchTributos,
     fetchServiciosByTributo,
     fetchPeriodosByClienteYServicio,
-    fetchClienteById, // Añadido
-    registerModule, // Añadido
-    modules, // Opcional, si necesitas acceder a los módulos registrados
+    fetchClienteById,
+    registerModule,
+    modules,
     loading,
     error,
-    // Nuevas funciones para gráficos
-    getPeriodosByServicio,
-    getPeriodosByMonth,
-    getTrendPeriodos,
-    getRevenueByService,
-    getIncomeDistribution,
-    getHeatmapData,
-    getKpis,
+    fetchReciboByNumero,
+    fetchRecibosByNumeros,
+    // Aquí seguirían las funciones de gráficos si las necesitas
   };
 
   return (

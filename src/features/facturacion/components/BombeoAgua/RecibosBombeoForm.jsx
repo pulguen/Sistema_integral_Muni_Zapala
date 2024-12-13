@@ -24,8 +24,8 @@ import { BombeoAguaContext } from '../../../../context/BombeoAguaContext.jsx';
 
 const RecibosBombeoForm = () => {
   const { servicios, handleCreateRecibo } = useContext(BombeoAguaContext);
-  const [selectedServiceName, setSelectedServiceName] = useState('');
   const { user } = useContext(AuthContext);
+
   const [client, setClient] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredClients, setFilteredClients] = useState([]);
@@ -50,12 +50,18 @@ const RecibosBombeoForm = () => {
     [servicios]
   );
 
+  // Función para parsear fechas como locales
+  const parseLocalDate = (dateString) => {
+    const [year, month, day] = dateString.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  };
+
   // Obtener clientes de los servicios
   const fetchClients = useCallback(async () => {
     try {
       const data = await customFetch('/tributos/1');
-      const servicios = data.servicios;
-      const clientesFromServices = servicios.flatMap(
+      const serviciosData = data.servicios;
+      const clientesFromServices = serviciosData.flatMap(
         (servicio) => servicio.clientes
       );
 
@@ -101,15 +107,16 @@ const RecibosBombeoForm = () => {
       );
     });
     setFilteredClients(filtered);
-    setShowClientList(searchTerm.length > 0);
+    setShowClientList(searchTerm.length > 0 && filtered.length > 0);
   }, [searchTerm, allClients]);
 
   // Obtener períodos del cliente seleccionado
   const fetchPeriodos = useCallback(async (cliente_id) => {
     setLoading(true);
+    setPeriodos([]);
     try {
       const data = await customFetch(`/cuentas/cliente/${cliente_id}`);
-      console.log('Datos recibidos:', data);      
+      console.log('Datos recibidos:', data);
 
       // Extraer 'responseData' y 'statusCode' de 'data'
       const [responseData] = data;
@@ -137,24 +144,23 @@ const RecibosBombeoForm = () => {
 
   const handleClientSelect = useCallback(
     (clientId) => {
-      const selectedClient = allClients.find(
+      const selectedClientData = allClients.find(
         (c) => c.id === parseInt(clientId)
       );
       setClient(clientId);
       setSearchTerm(
-        `${selectedClient.persona?.nombre} ${selectedClient.persona?.apellido}`
+        `${selectedClientData.persona?.nombre} ${selectedClientData.persona?.apellido}`
       );
       setSelectedClient({
-        ...selectedClient.persona,
-        calle: selectedClient?.persona?.calle || '',
-        altura: selectedClient?.persona?.altura || '',
+        ...selectedClientData.persona,
+        calle: selectedClientData?.persona?.calle || '',
+        altura: selectedClientData?.persona?.altura || '',
       });
 
       setShowClientList(false);
-      setSelectedServiceName(getServiceNameByClientId(clientId));
       fetchPeriodos(clientId);
     },
-    [allClients, fetchPeriodos, getServiceNameByClientId]
+    [allClients, fetchPeriodos]
   );
 
   const handlePeriodSelection = (periodo) => {
@@ -165,7 +171,7 @@ const RecibosBombeoForm = () => {
     setSelectedPeriodos(updatedSelectedPeriodos);
 
     const total = updatedSelectedPeriodos.reduce(
-      (sum, p) => sum + parseFloat(p.i_debito + p.i_recargo_actualizado - p.i_descuento),
+      (sum, p) => sum + (parseFloat(p.i_debito) + parseFloat(p.i_recargo_actualizado) - parseFloat(p.i_descuento)),
       0
     );
     setTotalAmount(total);
@@ -180,9 +186,16 @@ const RecibosBombeoForm = () => {
     }
 
     const currentDate = new Date();
-    const selectedDate = new Date(vencimiento);
+    const selectedDate = parseLocalDate(vencimiento);
 
-    if (selectedDate < currentDate.setHours(0, 0, 0, 0)) {
+    // Comparar solo fechas, sin horas
+    const today = new Date(
+      currentDate.getFullYear(),
+      currentDate.getMonth(),
+      currentDate.getDate()
+    );
+
+    if (selectedDate < today) {
       Swal.fire(
         'Error',
         'La fecha de vencimiento no puede ser anterior a la fecha actual.',
@@ -212,7 +225,7 @@ const RecibosBombeoForm = () => {
         totalAmount,
         periodos: selectedPeriodos,
         vencimiento,
-        servicio_nombre: selectedServiceName,
+        servicio_nombre: getServiceNameByClientId(client),
         cajero_nombre: user.name,
         observaciones,
       };
@@ -255,9 +268,13 @@ const RecibosBombeoForm = () => {
     };
   }, [handleClickOutside]);
 
+  // Función para obtener la fecha de hoy en formato local
   const getTodayDate = () => {
     const today = new Date();
-    return today.toISOString().split('T')[0];
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0'); // Los meses inician en 0
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
   return (
@@ -276,25 +293,24 @@ const RecibosBombeoForm = () => {
               <Form.Group
                 controlId="client"
                 ref={clientDropdownRef}
-                className="client-container"
+                className="client-container position-relative"
               >
                 <Form.Control
                   type="text"
                   value={searchTerm}
                   placeholder="Buscar cliente por nombre o DNI/CUIT"
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  onClick={() => setShowClientList(true)}
                   required
                   className="rounded"
                   aria-label="Buscar cliente por nombre o DNI/CUIT"
+                  autoComplete="off" // Desactiva autocompletado del navegador
                 />
                 {showClientList && (
                   <ListGroup
-                    className="position-absolute client-dropdown"
+                    className="position-absolute client-dropdown w-100"
                     style={{
                       maxHeight: '200px',
                       overflowY: 'auto',
-                      width: '100%',
                       zIndex: 1000,
                     }}
                     role="listbox"
@@ -324,169 +340,169 @@ const RecibosBombeoForm = () => {
           </Row>
         </section>
 
-        {/* Periodos Disponibles */}
-        <section className="form-section mb-4">
-          <h4 className="mb-4 text-secondary font-weight-bold">
-            Periodos Impagos
-          </h4>
-          <div className="table-responsive">
-            <Table striped bordered hover className="mt-2">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Nombre</th>
-                  <th>DNI/CUIT</th>
-                  <th>Mes</th>
-                  <th>Año</th>
-                  <th>Cuota</th>
-                  <th>Importe</th>
-                  <th>Descuento</th>
-                  <th>Recargo</th>
-                  <th>Total a Pagar</th>
-                  <th>Vencimiento</th>
-                  <th>Seleccionar</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan="12" className="text-center">
-                      <Spinner animation="border" role="status">
-                        <span className="visually-hidden">Cargando...</span>
-                      </Spinner>
-                    </td>
-                  </tr>
-                ) : !client ? (
-                  <tr>
-                    <td colSpan="12" className="text-center text-muted">
-                      No hay cliente seleccionado.
-                    </td>
-                  </tr>
-                ) : periodos.length > 0 ? (
-                  periodos.map((periodo, index) => (
-                    <tr key={index}>
-                      <td>{index + 1}</td>
-                      <td>
-                        {periodo.cliente?.persona?.nombre}{' '}
-                        {periodo.cliente?.persona?.apellido}
-                      </td>
-                      <td>{periodo.cliente?.persona?.dni}</td>
-                      <td>{periodo.mes}</td>
-                      <td>{periodo.año}</td>
-                      <td>{periodo.cuota}</td>
-                      <td>{periodo.i_debito}</td>
-                      <td>{periodo.i_descuento}</td>
-                      <td>{periodo.i_recargo_actualizado.toFixed(2)}</td>
-                      <td>{`$${(periodo.i_debito - periodo.i_descuento + periodo.i_recargo_actualizado).toFixed(2)}`}</td>
-                      <td>
-                        {new Date(periodo.f_vencimiento).toLocaleDateString()}
-                      </td>
-                      <td>
-                        <Form.Check
-                          type="checkbox"
-                          onChange={() => handlePeriodSelection(periodo)}
-                          checked={selectedPeriodos.includes(periodo)}
-                          aria-label={`Seleccionar periodo ${periodo.mes}/${periodo.año}`}
-                        />
-                      </td>
+        {/* Solo mostrar el resto del formulario si hay un cliente seleccionado */}
+        {client && (
+          <>
+            {/* Periodos Disponibles */}
+            <section className="form-section mb-4">
+              <h4 className="mb-4 text-secondary font-weight-bold">
+                Periodos Impagos
+              </h4>
+              <div className="table-responsive">
+                <Table striped bordered hover className="mt-2">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Nombre</th>
+                      <th>DNI/CUIT</th>
+                      <th>Mes</th>
+                      <th>Año</th>
+                      <th>Cuota</th>
+                      <th>Importe</th>
+                      <th>Descuento</th>
+                      <th>Recargo</th>
+                      <th>Total a Pagar</th>
+                      <th>Vencimiento</th>
+                      <th>Seleccionar</th>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="12" className="text-center text-muted">
-                      No hay periodos disponibles para este cliente.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </Table>
-          </div>
-        </section>
-
-        {/* Detalles del Recibo */}
-        <section className="form-section mb-4">
-          <Row>
-            <Col md={6}>
-              <Form.Group controlId="vencimiento" className="mt-3">
-                <Form.Label className="font-weight-bold">
-                  Fecha de Vencimiento del Recibo{' '}
-                  <span className="text-danger">*</span>
-                </Form.Label>
-                <Form.Control
-                  type="date"
-                  value={vencimiento}
-                  min={getTodayDate()}
-                  onChange={(e) => setVencimiento(e.target.value)}
-                  required
-                  className="rounded"
-                  aria-label="Fecha de vencimiento del recibo"
-                />
-              </Form.Group>
-              <Form.Group controlId="observaciones" className="mt-3">
-                <Form.Label className="font-weight-bold">Observaciones</Form.Label>
-                <Form.Control
-                  as="textarea"
-                  value={observaciones}
-                  onChange={(e) => setObservaciones(e.target.value)}
-                  rows={3}
-                  className="rounded"
-                  aria-label="Observaciones del recibo"
-                  placeholder='Escribí observaciones del recibo'
-                />
-              </Form.Group>
-
-            </Col>
-            <Col
-              md={6}
-              className="d-flex justify-content-center align-items-center"
-            >
-              <div className="text-center">
-                <h4 className="mb-4 text-secondary font-weight-bold">
-                  Total a Pagar
-                </h4>
-                <h1 className="display-4 font-weight-bold text-primary mb-0">
-                  AR$ {totalAmount.toFixed(2)}
-                </h1>
-                <p className="text-muted">
-                  Cliente: {selectedClient?.nombre} {selectedClient?.apellido}{' '}
-                  <br />
-                  DNI: {selectedClient?.dni} <br />
-                  Periodos Seleccionados:{' '}
-                  {selectedPeriodos
-                    .map((p) => `${p.mes}/${p.año}`)
-                    .join(', ')}{' '}
-                  <br />
-                  Fecha de Vencimiento:{' '}
-                  {vencimiento
-                    ? new Date(vencimiento).toLocaleDateString()
-                    : 'No asignada'}{' '}
-                  <br />
-                </p>
+                  </thead>
+                  <tbody>
+                    {loading ? (
+                      <tr>
+                        <td colSpan="12" className="text-center">
+                          <Spinner animation="border" role="status">
+                            <span className="visually-hidden">Cargando...</span>
+                          </Spinner>
+                        </td>
+                      </tr>
+                    ) : periodos.length > 0 ? (
+                      periodos.map((periodo, index) => (
+                        <tr key={index}>
+                          <td>{index + 1}</td>
+                          <td>
+                            {periodo.cliente?.persona?.nombre}{' '}
+                            {periodo.cliente?.persona?.apellido}
+                          </td>
+                          <td>{periodo.cliente?.persona?.dni}</td>
+                          <td>{periodo.mes}</td>
+                          <td>{periodo.año}</td>
+                          <td>{periodo.cuota}</td>
+                          <td>{parseFloat(periodo.i_debito).toFixed(2)}</td>
+                          <td>{parseFloat(periodo.i_descuento).toFixed(2)}</td>
+                          <td>{parseFloat(periodo.i_recargo_actualizado).toFixed(2)}</td>
+                          <td>{`AR$ ${(parseFloat(periodo.i_debito) - parseFloat(periodo.i_descuento) + parseFloat(periodo.i_recargo_actualizado)).toFixed(2)}`}</td>
+                          <td>
+                            {periodo.f_vencimiento
+                              ? parseLocalDate(periodo.f_vencimiento).toLocaleDateString()
+                              : 'Sin fecha'}
+                          </td>
+                          <td>
+                            <Form.Check
+                              type="checkbox"
+                              onChange={() => handlePeriodSelection(periodo)}
+                              checked={selectedPeriodos.includes(periodo)}
+                              aria-label={`Seleccionar periodo ${periodo.mes}/${periodo.año}`}
+                            />
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="12" className="text-center text-muted">
+                          No hay periodos disponibles para este cliente.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </Table>
               </div>
-            </Col>
-          </Row>
-        </section>
+            </section>
 
-        {/* Botones de acción */}
-        <div className="d-flex justify-content-center mt-4">
-          <CustomButton
-            type="submit"
-            variant="secondary"
-            className="me-3 px-5 py-2 font-weight-bold"
-            aria-label="Generar Recibo"
-          >
-            Generar Recibo
-          </CustomButton>
-          <CustomButton
-            type="reset"
-            variant="outline-secondary"
-            onClick={handleReset}
-            className="px-5 py-2 font-weight-bold"
-            aria-label="Limpiar Formulario"
-          >
-            Limpiar
-          </CustomButton>
-        </div>
+            {/* Detalles del Recibo */}
+            <section className="form-section mb-4">
+              <Row>
+                <Col md={6}>
+                  <Form.Group controlId="vencimiento" className="mt-3">
+                    <Form.Label className="font-weight-bold">
+                      Fecha de Vencimiento del Recibo{' '}
+                      <span className="text-danger">*</span>
+                    </Form.Label>
+                    <Form.Control
+                      type="date"
+                      value={vencimiento}
+                      min={getTodayDate()}
+                      onChange={(e) => setVencimiento(e.target.value)}
+                      required
+                      className="rounded"
+                      aria-label="Fecha de vencimiento del recibo"
+                    />
+                  </Form.Group>
+                  <Form.Group controlId="observaciones" className="mt-3">
+                    <Form.Label className="font-weight-bold">Observaciones</Form.Label>
+                    <Form.Control
+                      as="textarea"
+                      value={observaciones}
+                      onChange={(e) => setObservaciones(e.target.value)}
+                      rows={3}
+                      className="rounded"
+                      aria-label="Observaciones del recibo"
+                      placeholder='Escribí observaciones del recibo'
+                    />
+                  </Form.Group>
+                </Col>
+                <Col
+                  md={6}
+                  className="d-flex justify-content-center align-items-center"
+                >
+                  <div className="text-center">
+                    <h4 className="mb-4 text-secondary font-weight-bold">
+                      Total a Pagar
+                    </h4>
+                    <h1 className="display-4 font-weight-bold text-primary mb-0">
+                      AR$ {totalAmount.toFixed(2)}
+                    </h1>
+                    <p className="text-muted">
+                      Cliente: {selectedClient?.nombre} {selectedClient?.apellido}{' '}
+                      <br />
+                      DNI/CUIT: {selectedClient?.dni} <br />
+                      Periodos Seleccionados:{' '}
+                      {selectedPeriodos
+                        .map((p) => `${p.mes}/${p.año}`)
+                        .join(', ')}{' '}
+                      <br />
+                      Fecha de Vencimiento:{' '}
+                      {vencimiento
+                        ? parseLocalDate(vencimiento).toLocaleDateString()
+                        : 'No asignada'}{' '}
+                      <br />
+                    </p>
+                  </div>
+                </Col>
+              </Row>
+            </section>
+
+            {/* Botones de acción */}
+            <div className="d-flex justify-content-center mt-4">
+              <CustomButton
+                type="submit"
+                variant="secondary"
+                className="me-3 px-5 py-2 font-weight-bold"
+                aria-label="Generar Recibo"
+              >
+                Generar Recibo
+              </CustomButton>
+              <CustomButton
+                type="button"
+                variant="outline-secondary"
+                onClick={handleReset}
+                className="px-5 py-2 font-weight-bold"
+                aria-label="Limpiar Formulario"
+              >
+                Limpiar
+              </CustomButton>
+            </div>
+          </>
+        )}
       </Form>
     </Card>
   );

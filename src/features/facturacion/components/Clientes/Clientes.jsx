@@ -1,5 +1,4 @@
 // src/features/facturacion/components/Clientes/Clientes.jsx
-
 import React, { useState, useEffect, useCallback } from 'react';
 import Swal from 'sweetalert2';
 import { Breadcrumb, Form, Button, Table } from 'react-bootstrap';
@@ -301,36 +300,54 @@ export default function Clientes() {
         <>
           <Table {...getTableProps()} striped bordered hover className="custom-table">
             <thead>
-              {headerGroups.map((headerGroup) => (
-                <tr {...headerGroup.getHeaderGroupProps()}>
-                  {headerGroup.headers.map((column) => (
-                    <th
-                      {...column.getHeaderProps(column.getSortByToggleProps())}
-                      style={{ cursor: column.canSort ? 'pointer' : 'default' }}
-                      aria-label={`Ordenar por ${column.render('Header')}`}
-                    >
-                      {column.render('Header')}
-                      {/* Añadir ícono de ordenamiento */}
-                      {getSortIcon(column)}
-                    </th>
-                  ))}
-                </tr>
-              ))}
+              {headerGroups.map((headerGroup) => {
+                // Extraer la propiedad 'key' y esparcir el resto de las props
+                const { key: headerGroupKey, ...headerGroupProps } = headerGroup.getHeaderGroupProps();
+                return (
+                  <tr key={headerGroupKey} {...headerGroupProps}>
+                    {headerGroup.headers.map((column) => {
+                      // Extraer la propiedad 'key' y esparcir el resto de las props
+                      const { key: columnKey, ...columnProps } = column.getHeaderProps(column.getSortByToggleProps());
+                      return (
+                        <th
+                          key={columnKey}
+                          {...columnProps}
+                          style={{ cursor: column.canSort ? 'pointer' : 'default' }}
+                          aria-label={`Ordenar por ${column.render('Header')}`}
+                        >
+                          {column.render('Header')}
+                          {/* Añadir ícono de ordenamiento */}
+                          {getSortIcon(column)}
+                        </th>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
             </thead>
             <tbody {...getTableBodyProps()}>
               {page.length > 0 ? (
                 page.map((row) => {
                   prepareRow(row);
+                  // Extraer la propiedad 'key' y esparcir el resto de las props
+                  const { key: rowKey, ...rowProps } = row.getRowProps();
                   return (
                     <tr
-                      {...row.getRowProps()}
+                      key={rowKey}
+                      {...rowProps}
                       onClick={() => handleRowClick(row.original.id)}
                       style={{ cursor: 'pointer' }}
                       aria-label={`Detalles del Cliente ${row.original.id}`}
                     >
-                      {row.cells.map((cell) => (
-                        <td {...cell.getCellProps()}>{cell.render('Cell')}</td>
-                      ))}
+                      {row.cells.map((cell) => {
+                        // Extraer la propiedad 'key' y esparcir el resto de las props
+                        const { key: cellKey, ...cellProps } = cell.getCellProps();
+                        return (
+                          <td key={cellKey} {...cellProps}>
+                            {cell.render('Cell')}
+                          </td>
+                        );
+                      })}
                     </tr>
                   );
                 })

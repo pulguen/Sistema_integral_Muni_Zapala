@@ -15,12 +15,15 @@ import BombeoAgua from './features/facturacion/components/BombeoAgua/BombeoAgua.
 import About from './components/layout/Footer/About.jsx';
 import Usuarios from './features/Users/Components/Usuarios.jsx';
 import PeriodosHistorial from './features/facturacion/components/Periodos/PeriodosHistorial.jsx';
-import Roles from './features/Users/Components/Roles.jsx'
-import Permisos from './features/Users/Components/Permisos.jsx'
+import Roles from './features/Users/Components/Roles.jsx';
+import Permisos from './features/Users/Components/Permisos.jsx';
+import RecibosHistorial from './features/facturacion/components/Recibos/RecibosHistorial.jsx';
+import HomeCaja from './features/caja/HomeCaja.jsx';
 
 // Importamos los Proveedores
 import { FacturacionProvider } from './context/FacturacionContext';
 import { BombeoAguaProvider } from './context/BombeoAguaContext';
+import { UsersProvider } from './context/UsersContext.jsx';
 
 function AppContent() {
   return (
@@ -67,6 +70,8 @@ function AppContent() {
                       {/* Ruta de Periodos */}
                       <Route path="periodos" element={<PeriodosHistorial />} />
                       
+                      {/* Ruta de Recibos */}
+                      <Route path="recibos" element={<RecibosHistorial />} />
                       {/* Puedes agregar más subrutas aquí */}
                     </Routes>
                   </MainLayout>
@@ -91,14 +96,28 @@ function AppContent() {
           <Route
             path="/usuarios/*"
             element={
+              <UsersProvider>
+                <GlobalLayout>
+                  <MainLayout section="usuarios">
+                    <Routes>
+                      <Route index element={<Usuarios />} />
+                      <Route path="roles" element={<Roles />} />
+                      <Route path="permisos" element={<Permisos />} />
+                      {/* Puedes agregar más subrutas aquí */}
+                    </Routes>
+                  </MainLayout>
+                </GlobalLayout>
+              </UsersProvider>
+            }
+          />
+
+          {/* Ruta Caja */}
+          <Route
+            path="/caja"
+            element={
               <GlobalLayout>
-                <MainLayout section="usuarios">
-                  <Routes>
-                    <Route index element={<Usuarios />} />
-                    <Route path="roles" element={<Roles />} />
-                    <Route path="permisos" element={<Permisos />} />
-                    {/* Puedes agregar más subrutas aquí */}
-                  </Routes>
+                <MainLayout section="caja">
+                  <HomeCaja />
                 </MainLayout>
               </GlobalLayout>
             }

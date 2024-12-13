@@ -407,14 +407,14 @@ const PeriodosHistorial = () => {
         <Card.Body>
           {/* Búsqueda de cliente */}
           <Form.Group controlId="cliente" className="mb-3">
-            <Form.Label>Buscar Cliente (por Nombre o DNI)</Form.Label>
+            <Form.Label>Buscar Cliente</Form.Label>
             <Select
               components={animatedComponents}
               value={selectedCliente ? { value: selectedCliente.id, label: `${selectedCliente.persona?.nombre} ${selectedCliente.persona?.apellido} - DNI: ${selectedCliente.persona?.dni}` } : null}
               onChange={handleClienteSelect}
               onInputChange={handleSearchChange}
               options={clienteOptions}
-              placeholder="Buscar cliente por nombre o DNI"
+              placeholder="Ingresa nombre o DNI/CUIT del Cliente"
               isClearable
               isSearchable
               aria-label="Buscar Cliente"

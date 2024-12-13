@@ -81,7 +81,7 @@ const NavBar = () => {
             {/* Mostrar el nombre del usuario con saludo */}
             {user && (
               <Nav.Item className="me-3 user-welcome">
-                {`${user.name}, bienvenido`}
+                {`${user.name}, bienvenido/a`}
               </Nav.Item>
             )}
             <Button variant="outline-light" onClick={handleLogout}>
