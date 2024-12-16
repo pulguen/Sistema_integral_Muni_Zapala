@@ -1,11 +1,12 @@
 // src/features/Users/Components/RolesList.jsx
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useContext } from 'react';
 import { Form } from 'react-bootstrap';
 import Swal from 'sweetalert2';
 import customFetch from '../../../context/CustomFetch.js';
 import Loading from '../../../components/common/loading/Loading.jsx';
 import CustomButton from '../../../components/common/botons/CustomButton.jsx';
+import { UsersContext } from '../../../context/UsersContext.jsx'; // Importar el contexto
 
 export default function RolesList({ userId }) {
   const [roles, setRoles] = useState([]);
@@ -13,12 +14,14 @@ export default function RolesList({ userId }) {
   const [selectedRolesIds, setSelectedRolesIds] = useState([]);
   const [cargandoAsignacion, setCargandoAsignacion] = useState(false);
 
+  // Acceder al contexto para poder actualizar los usuarios
+  const { fetchUsuarios } = useContext(UsersContext);
+
   const fetchRoles = useCallback(async () => {
     setCargandoRoles(true);
     try {
       const data = await customFetch('/roles', 'GET');
       console.log('Datos de roles:', data);
-      // data = [ [roles], 200 ]
 
       if (
         Array.isArray(data) &&
@@ -52,7 +55,7 @@ export default function RolesList({ userId }) {
     try {
       const userData = await customFetch(`/users/${userId}`, 'GET');
       console.log('Datos del usuario:', userData);
-      // userData es un objeto de usuario
+      
       if (userData && typeof userData === 'object' && Array.isArray(userData.roles)) {
         const userRoleIds = userData.roles.map(role => role.id);
         setSelectedRolesIds(userRoleIds);
@@ -95,6 +98,7 @@ export default function RolesList({ userId }) {
       if (data && typeof data === 'object' && Array.isArray(data.roles)) {
         Swal.fire('Éxito', 'Roles actualizados exitosamente.', 'success');
         await fetchUserRoles(); // Refresca los roles del usuario
+        await fetchUsuarios(); // Refresca la lista global de usuarios
       } else {
         console.error('Error: La respuesta no es un objeto de usuario con roles:', data);
         Swal.fire('Error', 'No se pudieron actualizar los roles.', 'error');
@@ -105,7 +109,7 @@ export default function RolesList({ userId }) {
     } finally {
       setCargandoAsignacion(false);
     }
-  }, [userId, selectedRolesIds, fetchUserRoles]);
+  }, [userId, selectedRolesIds, fetchUserRoles, fetchUsuarios]);
 
   const memoizedRoles = useMemo(() => roles, [roles]);
 

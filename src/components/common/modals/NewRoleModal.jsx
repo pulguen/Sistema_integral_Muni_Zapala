@@ -1,13 +1,11 @@
 // src/features/Users/Components/modals/NewRoleModal.jsx
 
-import React, { useState, useContext } from 'react';
+import React, { useState } from 'react';
 import { Modal, Button, Form } from 'react-bootstrap';
-import { UsersContext } from '../.././../context/UsersContext';
 import Swal from 'sweetalert2';
+import PropTypes from 'prop-types';
 
-export default function NewRoleModal({ show, handleClose }) {
-  const { addRole } = useContext(UsersContext);
-
+export default function NewRoleModal({ show, handleClose, handleSubmit }) {
   const [newRole, setNewRole] = useState({
     name: '',
     description: '',
@@ -24,15 +22,16 @@ export default function NewRoleModal({ show, handleClose }) {
   const onSubmit = async (e) => {
     e.preventDefault();
 
-    // Validaciones básicas
+    // Validación básica
     if (!newRole.name.trim()) {
       Swal.fire('Error', 'El nombre del rol es obligatorio.', 'error');
       return;
     }
 
     try {
-      await addRole(newRole); // Usar la función del contexto
-      Swal.fire('Éxito', 'Rol agregado exitosamente.', 'success');
+      // Llamamos a handleSubmit pasado desde Roles.jsx
+      await handleSubmit(newRole);
+      // La función handleSubmit ya maneja los mensajes de éxito y el cierre del modal
       setNewRole({ name: '', description: '' });
       handleClose();
     } catch (error) {
@@ -95,3 +94,9 @@ export default function NewRoleModal({ show, handleClose }) {
     </Modal>
   );
 }
+
+NewRoleModal.propTypes = {
+  show: PropTypes.bool.isRequired,
+  handleClose: PropTypes.func.isRequired,
+  handleSubmit: PropTypes.func.isRequired,
+};

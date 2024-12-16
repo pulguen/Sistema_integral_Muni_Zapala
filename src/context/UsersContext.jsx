@@ -27,11 +27,7 @@ export const UsersProvider = ({ children }) => {
     try {
       const data = await customFetch('/users', 'GET');
       console.log('Datos de usuarios:', data);
-      // Aquí 'data' es un array de usuarios directamente.
-      // Ej: data = [{id:1, ...}, {id:3, ...}, ...]
-  
       if (Array.isArray(data)) {
-        // Como data es un array de usuarios, lo asignamos directamente
         setUsuarios(data);
       } else {
         console.error('Error: La respuesta no es un arreglo de usuarios:', data);
@@ -46,65 +42,62 @@ export const UsersProvider = ({ children }) => {
     }
   }, []);
 
-// Dentro de fetchRoles:
-const fetchRoles = useCallback(async () => {
-  setCargandoRoles(true);
-  try {
-    const data = await customFetch('/roles', 'GET');
-    console.log('Datos de roles:', data);
-    // data = [ [ {id:1,name:'...'}, ... ], 200 ]
-
-    if (Array.isArray(data) && data.length === 2 && Array.isArray(data[0]) && typeof data[1] === 'number') {
-      const [fetchedRoles, status] = data;
-      if (status === 200) {
-        setRoles(fetchedRoles);
+  // Función para obtener roles
+  const fetchRoles = useCallback(async () => {
+    setCargandoRoles(true);
+    try {
+      const data = await customFetch('/roles', 'GET');
+      console.log('Datos de roles:', data);
+      // Suponiendo que la respuesta es [rolesArray, status]
+      if (Array.isArray(data) && data.length === 2 && Array.isArray(data[0]) && typeof data[1] === 'number') {
+        const [fetchedRoles, status] = data;
+        if (status === 200) {
+          setRoles(fetchedRoles);
+          console.log('Roles actualizados en el contexto:', fetchedRoles);
+        } else {
+          console.error('Error: estado no es 200 en roles:', fetchedRoles, status);
+          setRoles([]);
+        }
       } else {
-        console.error('Error: estado no es 200 en roles:', fetchedRoles, status);
+        console.error('Error: Respuesta de roles no es [rolesArray, status]:', data);
         setRoles([]);
       }
-    } else {
-      console.error('Error: Respuesta de roles no es [rolesArray, status]:', data);
+    } catch (error) {
+      Swal.fire('Error', 'Error al obtener roles.', 'error');
+      console.error('Error al obtener roles:', error);
       setRoles([]);
+    } finally {
+      setCargandoRoles(false);
     }
-  } catch (error) {
-    Swal.fire('Error', 'Error al obtener roles.', 'error');
-    console.error('Error al obtener roles:', error);
-    setRoles([]);
-  } finally {
-    setCargandoRoles(false);
-  }
-}, []);
+  }, []);
 
-
-// Dentro de fetchPermisos:
-const fetchPermisos = useCallback(async () => {
-  setCargandoPermisos(true);
-  try {
-    const data = await customFetch('/permisos', 'GET');
-    console.log('Datos de permisos:', data);
-    // data = [ [ {id:..., ...}, {id:..., ...} ], 200 ]
-
-    if (Array.isArray(data) && data.length === 2 && Array.isArray(data[0]) && typeof data[1] === 'number') {
-      const [fetchedPermisos, status] = data;
-      if (status === 200) {
-        setPermisos(fetchedPermisos);
+  // Función para obtener permisos
+  const fetchPermisos = useCallback(async () => {
+    setCargandoPermisos(true);
+    try {
+      const data = await customFetch('/permisos', 'GET');
+      console.log('Datos de permisos:', data);
+      // Suponiendo que la respuesta es [permisosArray, status]
+      if (Array.isArray(data) && data.length === 2 && Array.isArray(data[0]) && typeof data[1] === 'number') {
+        const [fetchedPermisos, status] = data;
+        if (status === 200) {
+          setPermisos(fetchedPermisos);
+        } else {
+          console.error('Error: estado no es 200 en permisos:', fetchedPermisos, status);
+          setPermisos([]);
+        }
       } else {
-        console.error('Error: estado no es 200 en permisos:', fetchedPermisos, status);
+        console.error('Error: Respuesta de permisos no es [permisosArray, status]:', data);
         setPermisos([]);
       }
-    } else {
-      console.error('Error: Respuesta de permisos no es [permisosArray, status]:', data);
+    } catch (error) {
+      Swal.fire('Error', 'Error al obtener permisos.', 'error');
+      console.error('Error al obtener permisos:', error);
       setPermisos([]);
+    } finally {
+      setCargandoPermisos(false);
     }
-  } catch (error) {
-    Swal.fire('Error', 'Error al obtener permisos.', 'error');
-    console.error('Error al obtener permisos:', error);
-    setPermisos([]);
-  } finally {
-    setCargandoPermisos(false);
-  }
-}, []);
-
+  }, []);
 
   // Funciones CRUD para Usuarios
   const addUsuario = useCallback(async (newUser) => {
@@ -171,6 +164,8 @@ const fetchPermisos = useCallback(async () => {
     try {
       const data = await customFetch('/roles', 'POST', newRole);
       console.log('Respuesta al agregar rol:', data);
+  
+      // Caso 1: [data, status]
       if (Array.isArray(data) && data.length >= 2) {
         const [, status] = data;
         if (status === 200) {
@@ -178,11 +173,38 @@ const fetchPermisos = useCallback(async () => {
         } else {
           throw new Error('Error al agregar rol');
         }
+      // Caso 2: String con mensaje de éxito
+      } else if (typeof data === 'string' && data.toLowerCase().includes('agregado exitosamente')) {
+        await fetchRoles();
+      // Caso 3: Un objeto con propiedades del rol recién creado
+      } else if (data && typeof data === 'object' && data.id && data.name && data.created_at) {
+        // Asumimos que es el rol recién creado
+        await fetchRoles();
+      } else {
+        // Si no cumple ninguno de los formatos esperados
+        console.error('Formato de respuesta inesperado al agregar rol:', data);
+        throw new Error('Formato de respuesta inesperado al agregar rol');
       }
+  
     } catch (error) {
-      throw error;
+      console.error('Error al agregar rol:', error);
+      let errorMessage = 'No se pudo agregar el rol.';
+      const match = error.message.match(/\{.*\}/);
+      if (match) {
+        try {
+          const jsonError = JSON.parse(match[0]);
+          if (jsonError.error) {
+            errorMessage = jsonError.error;
+          }
+        } catch (parseError) {
+          console.error('Error al parsear el mensaje de error JSON:', parseError);
+        }
+      }
+      Swal.fire('Error', errorMessage, 'error');
     }
   }, [fetchRoles]);
+  
+  
 
   const editRole = useCallback(async (updatedRole) => {
     try {
@@ -205,18 +227,41 @@ const fetchPermisos = useCallback(async () => {
     try {
       const data = await customFetch(`/roles/${id}`, 'DELETE');
       console.log('Respuesta al eliminar rol:', data);
-      if (Array.isArray(data) && data.length >= 2) {
-        const [, status] = data;
-        if (status === 200) {
-          await fetchRoles();
-        } else {
-          throw new Error('Error al eliminar rol');
+  
+      // Caso de éxito: asumimos que data es un string "Rol eliminado exitosamente."
+      if (typeof data === 'string' && data.includes('eliminado exitosamente')) {
+        Swal.fire('Eliminado', data, 'success');
+        await fetchRoles();
+      } else {
+        // Si no es el string esperado, mostramos error genérico
+        console.error('Formato de respuesta inesperado al eliminar rol:', data);
+        Swal.fire('Error', 'Formato de respuesta inesperado al eliminar rol.', 'error');
+      }
+  
+    } catch (error) {
+      console.error('Error al eliminar rol:', error);
+  
+      // Intentar extraer el mensaje de error del JSON en el mensaje del error
+      let errorMessage = 'No se pudo eliminar el rol.';
+      const match = error.message.match(/\{.*\}/);
+      if (match) {
+        try {
+          const jsonError = JSON.parse(match[0]);
+          if (jsonError.error) {
+            errorMessage = jsonError.error;
+          }
+        } catch (parseError) {
+          console.error('Error al parsear el mensaje de error JSON:', parseError);
         }
       }
-    } catch (error) {
-      throw error;
+  
+      Swal.fire('Error', errorMessage, 'error');
+      // Aquí ya NO lanzamos nuevamente el error, para evitar que Roles.jsx lo vuelva a capturar
+      // y muestre otro mensaje.
     }
   }, [fetchRoles]);
+  
+  
 
   const assignRolesToUser = useCallback(async (userId, rolesIds) => {
     try {

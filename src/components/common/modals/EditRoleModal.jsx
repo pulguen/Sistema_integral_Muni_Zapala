@@ -1,13 +1,13 @@
-// src/features/Users/Components/modals/EditRoleModal.jsx
+// src/components/common/modals/EditRoleModal.jsx
 
 import React, { useState, useEffect, useContext } from 'react';
 import { Modal, Button, Form } from 'react-bootstrap';
-import { UsersContext } from '../../../context/UsersContext'; // Importar el contexto
 import Swal from 'sweetalert2';
 import PropTypes from 'prop-types';
+import { UsersContext } from '../../../context/UsersContext';
 
 export default function EditRoleModal({ show, handleClose, roleData }) {
-  const { editRole } = useContext(UsersContext); // Consumir la función del contexto
+  const { editRole, fetchRoles } = useContext(UsersContext);
 
   const [updatedRole, setUpdatedRole] = useState({
     id: '',
@@ -36,14 +36,16 @@ export default function EditRoleModal({ show, handleClose, roleData }) {
   const onSubmit = async (e) => {
     e.preventDefault();
 
-    // Validaciones básicas
+    // Validación básica: nombre obligatorio
     if (!updatedRole.name.trim()) {
       Swal.fire('Error', 'El nombre del rol es obligatorio.', 'error');
       return;
     }
 
     try {
-      await editRole(updatedRole); // Usar la función del contexto
+      await editRole(updatedRole);
+      // Llamamos a fetchRoles para actualizar la lista de roles
+      await fetchRoles();
       Swal.fire('Éxito', 'Rol modificado exitosamente.', 'success');
       handleClose();
     } catch (error) {
@@ -64,7 +66,6 @@ export default function EditRoleModal({ show, handleClose, roleData }) {
           <Modal.Title>Editar Rol</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          {/* Campo de Nombre del Rol */}
           <Form.Group controlId="editRoleName">
             <Form.Label>Nombre del Rol</Form.Label>
             <Form.Control
@@ -78,7 +79,6 @@ export default function EditRoleModal({ show, handleClose, roleData }) {
             />
           </Form.Group>
 
-          {/* Campo de Descripción del Rol */}
           <Form.Group controlId="editRoleDescription" className="mt-3">
             <Form.Label>Descripción</Form.Label>
             <Form.Control
@@ -93,11 +93,9 @@ export default function EditRoleModal({ show, handleClose, roleData }) {
           </Form.Group>
         </Modal.Body>
         <Modal.Footer>
-          {/* Botón para Cerrar el Modal */}
           <Button variant="secondary" onClick={handleModalClose} aria-label="Cancelar Edición Rol">
             Cancelar
           </Button>
-          {/* Botón para Enviar el Formulario */}
           <Button variant="primary" type="submit" aria-label="Guardar Cambios Rol">
             Guardar Cambios
           </Button>
