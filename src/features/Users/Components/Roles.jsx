@@ -10,42 +10,28 @@ import NewRoleModal from '../../../components/common/modals/NewRoleModal.jsx';
 import CustomButton from '../../../components/common/botons/CustomButton.jsx';
 import { UsersContext } from '../../../context/UsersContext.jsx';
 import EditRoleModal from '../../../components/common/modals/EditRoleModal.jsx';
-import customFetch from '../../../context/CustomFetch.js'; // Asegúrate de que la ruta es correcta
+import UsersByRoleList from './UsersByRoleList.jsx';
 
 export default function Roles() {
-  const [usuarios, setUsuarios] = useState([]);
-  const [cargandoUsuarios, setCargandoUsuarios] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState(null);
   const [showAddRoleModal, setShowAddRoleModal] = useState(false);
-
-  // Estados para edición de roles
   const [showEditRoleModal, setShowEditRoleModal] = useState(false);
   const [roleToEdit, setRoleToEdit] = useState(null);
 
-  // Destructuramos addRole del contexto y eliminamos fetchRoles ya que no se usa
-  const { roles, cargandoRoles, fetchUsuarios, deleteRole, addRole } = useContext(UsersContext);
+  // Nuevo estado para el rol seleccionado en el dropdown de Usuarios por Rol
+  const [selectedRole, setSelectedRole] = useState(null);
 
-  const fetchUsuariosLocal = useCallback(async () => {
-    setCargandoUsuarios(true);
-    try {
-      const data = await customFetch('/users', 'GET');
-      console.log('Datos de usuarios:', data);
-      if (Array.isArray(data)) {
-        setUsuarios(data);
-      } else {
-        console.error('Error: La respuesta no es un arreglo de usuarios:', data);
-        Swal.fire('Error', 'Error al obtener usuarios.', 'error');
-        setUsuarios([]);
-      }
-    } catch (error) {
-      Swal.fire('Error', 'Error al obtener usuarios.', 'error');
-      console.error('Error al obtener usuarios:', error);
-      setUsuarios([]);
-    } finally {
-      setCargandoUsuarios(false);
-    }
-  }, []);
+  // Ahora usamos directamente el contexto para usuarios, roles, etc.
+  const {
+    usuarios,
+    cargandoUsuarios,
+    roles,
+    cargandoRoles,
+    fetchUsuarios,
+    deleteRole,
+    addRole
+  } = useContext(UsersContext);
 
   const memoizedFilteredUsers = useMemo(() => {
     const term = searchTerm.toLowerCase();
@@ -56,9 +42,19 @@ export default function Roles() {
     });
   }, [searchTerm, usuarios]);
 
+  // Cada vez que cambie la lista global de usuarios, si tenemos un usuario seleccionado,
+  // lo actualizamos con sus datos más recientes.
   useEffect(() => {
-    fetchUsuariosLocal();
-  }, [fetchUsuariosLocal]);
+    if (selectedUser) {
+      const updatedUser = usuarios.find(u => u.id === selectedUser.id);
+      if (updatedUser) {
+        setSelectedUser(updatedUser);
+      } else {
+        // Si el usuario ya no existe en la lista (quizás fue eliminado), lo deseleccionamos.
+        setSelectedUser(null);
+      }
+    }
+  }, [usuarios, selectedUser]);
 
   const handleSelectUser = useCallback((user) => {
     setSelectedUser(user);
@@ -66,29 +62,18 @@ export default function Roles() {
 
   const handleAddRole = useCallback(async (newRole) => {
     try {
-      // Utilizamos addRole del contexto en lugar de customFetch directamente
       await addRole(newRole);
-
-      // Mostrar mensaje de éxito
       Swal.fire('Éxito', 'Rol agregado exitosamente.', 'success');
       setShowAddRoleModal(false);
       await fetchUsuarios();
 
-      if (selectedUser) {
-        const [userData, status] = await customFetch(`/users/${selectedUser.id}`, 'GET');
-        console.log('Datos del usuario seleccionado tras agregar rol:', userData);
-        if (status === 200 && userData && typeof userData === 'object' && Array.isArray(userData.roles)) {
-          setSelectedUser(userData);
-        } else {
-          console.error('Error al refrescar el usuario seleccionado:', userData, status);
-          Swal.fire('Error', 'No se pudo actualizar la información del usuario seleccionado.', 'error');
-        }
-      }
+      // Después de actualizar usuarios, el useEffect anterior resincronizará selectedUser
+      // si está seleccionado, no necesitamos hacerlo manualmente.
     } catch (error) {
       Swal.fire('Error', 'Hubo un problema al agregar el rol.', 'error');
       console.error('Error al agregar rol:', error);
     }
-  }, [selectedUser, fetchUsuarios, addRole]);
+  }, [addRole, fetchUsuarios]);
 
   const handleEditRoleClick = (role) => {
     setRoleToEdit(role);
@@ -107,20 +92,14 @@ export default function Roles() {
   
     if (result.isConfirmed) {
       try {
-        await deleteRole(roleId); 
-        // deleteRole se encarga de mostrar mensaje de éxito o error
+        await deleteRole(roleId);
+        // No necesitamos refrescar manualmente selectedUser,
+        // fetchUsuarios() se llama dentro de deleteRole si es necesario.
       } catch (error) {
-        // Si quieres, puedes dejar un console.error, pero no es necesario otro Swal
         console.error('Error al eliminar rol:', error);
       }
     }
   };
-  
-
-  // Verificar que roles se actualizan correctamente
-  useEffect(() => {
-    console.log('Roles desde el contexto en Roles.jsx:', roles);
-  }, [roles]);
 
   return (
     <div className="mt-2 usuarios-con-roles-section">
@@ -135,7 +114,7 @@ export default function Roles() {
       <Row>
         {/* Columna Izquierda: CRUD de Roles Existentes */}
         <Col xs={12} lg={6}>
-          <h5 className="mt-3 mt-lg-0">Roles Existentes:</h5>
+          <h5 className="mt-3 mt-lg-0">Roles Existentes</h5>
           {cargandoRoles ? (
             <Loading />
           ) : roles && roles.length > 0 ? (
@@ -188,10 +167,9 @@ export default function Roles() {
           </CustomButton>
         </Col>
 
-        {/* Columna Derecha: Buscador, Usuarios y Roles del Usuario Seleccionado */}
+        {/* Columna Derecha: Asignación de roles a un usuario y usuarios por rol */}
         <Col xs={12} lg={6}>
-        <h5 className="mt-3 mt-lg-0">Asignación de Roles</h5>
-          {/* Buscador de usuarios */}
+          <h5 className="mt-3 mt-lg-0">Asignación de Roles a un Usuario</h5>
           <Form.Control
             type="text"
             placeholder="Buscar por nombre o email"
@@ -226,10 +204,43 @@ export default function Roles() {
               {selectedUser && (
                 <div style={{ marginTop: '2rem' }}>
                   <h5>Roles de {selectedUser.name}:</h5>
-                  <RolesList userId={selectedUser.id} />
+                  <RolesList 
+                    userId={selectedUser.id} 
+                    onClose={() => setSelectedUser(null)} 
+                  />
                 </div>
               )}
             </>
+          )}
+
+          <h5 className="mt-4">Usuarios por Rol</h5>
+          <Form.Select
+            value={selectedRole ? selectedRole.id : ''}
+            onChange={(e) => {
+              const selectedId = e.target.value;
+              if (!selectedId) {
+                setSelectedRole(null);
+              } else {
+                const role = roles.find(r => r.id === parseInt(selectedId));
+                setSelectedRole(role || null);
+              }
+            }}
+            className="mb-3"
+            aria-label="Seleccionar Rol"
+          >
+            <option value="">Seleccionar rol...</option>
+            {roles && roles.map((role) => (
+              <option key={role.id} value={role.id}>{role.name}</option>
+            ))}
+          </Form.Select>
+
+          {selectedRole && (
+            <div style={{ marginTop: '2rem' }}>
+              <UsersByRoleList
+                roleId={selectedRole.id}
+                onClose={() => setSelectedRole(null)}
+              />
+            </div>
           )}
         </Col>
       </Row>
@@ -237,7 +248,7 @@ export default function Roles() {
       <NewRoleModal
         show={showAddRoleModal}
         handleClose={() => setShowAddRoleModal(false)}
-        handleSubmit={handleAddRole} // Utiliza handleAddRole correctamente
+        handleSubmit={handleAddRole}
       />
 
       {roleToEdit && (

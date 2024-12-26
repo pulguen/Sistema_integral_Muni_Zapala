@@ -1,5 +1,3 @@
-// src/features/Users/Components/RolesList.jsx
-
 import React, { useState, useEffect, useCallback, useMemo, useContext } from 'react';
 import { Form } from 'react-bootstrap';
 import Swal from 'sweetalert2';
@@ -8,7 +6,7 @@ import Loading from '../../../components/common/loading/Loading.jsx';
 import CustomButton from '../../../components/common/botons/CustomButton.jsx';
 import { UsersContext } from '../../../context/UsersContext.jsx'; // Importar el contexto
 
-export default function RolesList({ userId }) {
+export default function RolesList({ userId, onClose }) {
   const [roles, setRoles] = useState([]);
   const [cargandoRoles, setCargandoRoles] = useState(true);
   const [selectedRolesIds, setSelectedRolesIds] = useState([]);
@@ -134,14 +132,22 @@ export default function RolesList({ userId }) {
             onChange={() => handleCheckboxChange(role.id)}
           />
         ))}
-        <CustomButton
-          className="mt-3"
-          onClick={handleSaveChanges}
-          disabled={cargandoAsignacion}
-          aria-label="Guardar Cambios de Roles"
-        >
-          {cargandoAsignacion ? 'Guardando...' : 'Guardar Cambios'}
-        </CustomButton>
+        <div className="d-flex gap-2 mt-3">
+          <CustomButton
+            onClick={handleSaveChanges}
+            disabled={cargandoAsignacion}
+            aria-label="Guardar Cambios de Roles"
+          >
+            {cargandoAsignacion ? 'Guardando...' : 'Guardar Cambios'}
+          </CustomButton>
+          <CustomButton
+            variant="danger"
+            onClick={onClose}
+            aria-label="Cerrar Asignación de Roles"
+          >
+            Cerrar
+          </CustomButton>
+        </div>
       </Form>
     </div>
   );

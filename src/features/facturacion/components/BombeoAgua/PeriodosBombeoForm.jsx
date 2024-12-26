@@ -35,18 +35,49 @@ const BombeoAguaForm = () => {
   const [filteredServices, setFilteredServices] = useState([]);
   const [service, setService] = useState("");
   const [month, setMonth] = useState("");
-  const [cuota, setCuota] = useState("");
+  const [cuota, setCuota] = useState(1);
+  const [year, setYear] = useState(new Date().getFullYear());
   const [vencimiento, setVencimiento] = useState("");
   const [moduleRate, setModuleRate] = useState(0);
   const [totalModules, setTotalModules] = useState(0);
   const [totalInPesos, setTotalInPesos] = useState(0);
   const [selectedClient, setSelectedClient] = useState({});
   const [moduleValue, setModuleValue] = useState(0);
-  const [periodos, setPeriodos] = useState([]);
+  const [periodosLocal, setPeriodosLocal] = useState([]);
   const [loadingPeriodos, setLoadingPeriodos] = useState(false);
   const [recordsLimit, setRecordsLimit] = useState(6);
 
   const clientDropdownRef = useRef(null);
+
+  // Función para obtener el nombre completo del cliente
+  const getFullName = (persona) => {
+    const nombre = persona?.nombre || "";
+    const apellido = persona?.apellido || "";
+    return `${nombre} ${apellido}`.trim();
+  };
+
+  // Función para formatear fechas a dd-mm-aaaa (para la tabla)
+  const formatDate = (dateString) => {
+    if (!dateString) return "Sin fecha";
+
+    const date = new Date(dateString);
+
+    // Asegurarse de que la fecha es válida
+    if (isNaN(date)) return "Fecha inválida";
+
+    const day = String(date.getUTCDate()).padStart(2, "0");
+    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const year = date.getUTCFullYear();
+
+    return `${day}-${month}-${year}`;
+  };
+
+  // Función para formatear la fecha de vencimiento en DD/MM/AAAA
+  const formatLocalDate = (dateString) => {
+    if (!dateString) return "Sin fecha";
+    const [year, month, day] = dateString.split("-");
+    return `${day}/${month}/${year}`;
+  };
 
   // Obtener el valor del módulo
   const fetchModuleValue = useCallback(async () => {
@@ -81,12 +112,8 @@ const BombeoAguaForm = () => {
 
       // Ordenar los clientes alfabéticamente por nombre y apellido
       uniqueClients.sort((a, b) => {
-        const nameA = `${a.persona?.nombre || ""} ${
-          a.persona?.apellido || ""
-        }`.toLowerCase();
-        const nameB = `${b.persona?.nombre || ""} ${
-          b.persona?.apellido || ""
-        }`.toLowerCase();
+        const nameA = `${a.persona?.nombre || ""} ${a.persona?.apellido || ""}`.toLowerCase();
+        const nameB = `${b.persona?.nombre || ""} ${b.persona?.apellido || ""}`.toLowerCase();
         return nameA.localeCompare(nameB);
       });
 
@@ -106,15 +133,13 @@ const BombeoAguaForm = () => {
   // Obtener períodos
   const fetchPeriodos = useCallback(async (cliente_id) => {
     setLoadingPeriodos(true);
-    setPeriodos([]);
+    setPeriodosLocal([]);
     try {
       const data = await customFetch(`/cuentas/cliente/${cliente_id}`);
       const periodosCliente = (data[0] || []).map((periodo) => {
         const i_debito = parseFloat(periodo.i_debito) || 0;
         const i_descuento = parseFloat(periodo.i_descuento) || 0;
-        const i_recargo_actualizado = parseFloat(
-          periodo.i_recargo_actualizado || 0
-        );
+        const i_recargo_actualizado = parseFloat(periodo.i_recargo_actualizado || 0);
 
         return {
           ...periodo,
@@ -123,7 +148,7 @@ const BombeoAguaForm = () => {
         };
       });
 
-      setPeriodos(periodosCliente);
+      setPeriodosLocal(periodosCliente);
     } catch (error) {
       console.error("Error al obtener los períodos:", error);
       Swal.fire({
@@ -144,9 +169,7 @@ const BombeoAguaForm = () => {
   useEffect(() => {
     const filtered = clients.filter((client) => {
       const clientName = `${client.persona?.nombre} ${client.persona?.apellido}`.toLowerCase();
-      const clientDNI = client.persona?.dni
-        ? client.persona.dni.toString()
-        : "";
+      const clientDNI = client.persona?.dni ? client.persona.dni.toString() : "";
 
       return (
         clientName.includes(searchTerm.toLowerCase()) ||
@@ -178,14 +201,27 @@ const BombeoAguaForm = () => {
   const handleClientSelect = useCallback(
     (clientId) => {
       const clientData = clients.find((c) => c.id === parseInt(clientId));
-      setSelectedClient(clientData?.persona || {});
-      setClient(clientId);
-      setSearchTerm(
-        `${clientData.persona?.nombre} ${clientData.persona?.apellido}`
-      );
-      filterServicesByClient(clientId);
-      setShowClientList(false);
-      fetchPeriodos(clientId);
+      if (clientData && clientData.persona) {
+        setSelectedClient({
+          ...clientData.persona,
+          // Asegurarse de que apellido y dni no sean null o undefined
+          apellido: clientData.persona.apellido || "",
+          dni: clientData.persona.dni || "Sin DNI",
+        });
+        setClient(clientId);
+        setSearchTerm(getFullName(clientData.persona));
+        filterServicesByClient(clientId);
+        setShowClientList(false);
+        fetchPeriodos(clientId);
+      } else {
+        // Manejar el caso donde no se encuentra el cliente
+        setSelectedClient({});
+        setClient("");
+        setSearchTerm("");
+        setFilteredServices([]);
+        setShowClientList(false);
+        setPeriodosLocal([]);
+      }
     },
     [clients, filterServicesByClient, fetchPeriodos]
   );
@@ -246,18 +282,43 @@ const BombeoAguaForm = () => {
       return;
     }
 
+    if (cuota < 1) {
+      Swal.fire("Error", "La cuota debe ser al menos 1.", "error");
+      return;
+    }
+
+    // Verificar si ya existe un periodo con la misma combinación
+    const isDuplicate = periodosLocal.some(
+      (p) =>
+        p.cliente_id === parseInt(client) &&
+        p.servicio_id === parseInt(service) &&
+        p.año === year &&
+        p.mes === month &&
+        p.cuota === cuota
+    );
+
+    if (isDuplicate) {
+      Swal.fire(
+        "Error",
+        "Ya existe un periodo con los mismos detalles (Cliente, Servicio, Año, Mes y Cuota).",
+        "error"
+      );
+      return;
+    }
+
     const periodoData = {
-      cliente_id: client,
+      cliente_id: parseInt(client),
       clientName: `${selectedClient?.nombre} ${selectedClient?.apellido}`,
       dni: selectedClient?.dni,
-      volume,
-      servicio_id: service,
+      volume: parseFloat(volume),
+      servicio_id: parseInt(service),
       service: getServiceNameById(service),
       totalAmount: `AR$ ${totalInPesos.toFixed(2)}`,
       totalModules,
-      cuota,
+      cuota: parseInt(cuota),
       month,
-      vencimiento,
+      year,
+      vencimiento, // Mantener "YYYY-MM-DD" para guardarlo
     };
 
     handleCreatePeriodo(periodoData);
@@ -276,14 +337,15 @@ const BombeoAguaForm = () => {
     setVolume("");
     setService("");
     setMonth("");
-    setCuota("");
+    setCuota(1);
+    setYear(new Date().getFullYear());
     setVencimiento("");
     setModuleRate(0);
     setTotalModules(0);
     setTotalInPesos(0);
     setSelectedClient({});
     setShowClientList(false);
-    setPeriodos([]);
+    setPeriodosLocal([]);
   };
 
   const handleVolumeChange = (e) => {
@@ -295,6 +357,16 @@ const BombeoAguaForm = () => {
     const value = Math.max(1, e.target.value);
     setCuota(value);
   };
+
+  const yearOptions = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const startYear = 2020;
+    const years = [];
+    for (let y = startYear; y <= currentYear; y++) {
+      years.push(y);
+    }
+    return years.reverse();
+  }, []);
 
   const monthOptions = useMemo(
     () => [
@@ -330,7 +402,7 @@ const BombeoAguaForm = () => {
               <Form.Group
                 controlId="client"
                 ref={clientDropdownRef}
-                className="client-container"
+                className="client-container position-relative"
               >
                 <Form.Control
                   type="text"
@@ -344,11 +416,10 @@ const BombeoAguaForm = () => {
                 />
                 {showClientList && (
                   <ListGroup
-                    className="position-absolute client-dropdown"
+                    className="position-absolute client-dropdown w-100"
                     style={{
                       maxHeight: "200px",
                       overflowY: "auto",
-                      width: "100%",
                       zIndex: 1000,
                     }}
                     role="listbox"
@@ -362,8 +433,8 @@ const BombeoAguaForm = () => {
                           role="option"
                           aria-selected={client.id === client}
                         >
-                          {client.persona?.nombre} {client.persona?.apellido} -{" "}
-                          {client.persona?.dni}
+                          {getFullName(client.persona)} -{" "}
+                          {client.persona?.dni || "Sin DNI"}
                         </ListGroup.Item>
                       ))
                     ) : (
@@ -416,37 +487,51 @@ const BombeoAguaForm = () => {
                           </Spinner>
                         </td>
                       </tr>
-                    ) : periodos.length > 0 ? (
-                      periodos.slice(0, recordsLimit).map((periodo, index) => (
-                        <tr key={index}>
-                          <td>{index + 1}</td>
-                          <td>
-                            {periodo.cliente?.persona?.nombre}{" "}
-                            {periodo.cliente?.persona?.apellido}
-                          </td>
-                          <td>{periodo.cliente.persona.dni}</td>
-                          <td>{periodo.mes}</td>
-                          <td>{periodo.año}</td>
-                          <td>{periodo.cantidad}</td>
-                          <td>{periodo.cuota}</td>
-                          <td>{periodo.i_debito.toFixed(2)}</td>
-                          <td>{periodo.i_descuento.toFixed(2)}</td>
-                          <td>{periodo.i_recargo_actualizado.toFixed(2)}</td>
-                          <td>{(periodo.total || 0).toFixed(2)}</td>
-                          <td>
-                            {periodo.f_vencimiento
-                              ? new Date(periodo.f_vencimiento).toLocaleDateString()
-                              : "Sin fecha"}
-                          </td>
-                          <td>{periodo.n_recibo_generado}</td>
-                          <td>{periodo.condicion_pago}</td>
-                          <td>
-                            {periodo.f_pago
-                              ? new Date(periodo.f_pago).toLocaleDateString()
-                              : "No Pago"}
-                          </td>
-                        </tr>
-                      ))
+                    ) : periodosLocal.length > 0 ? (
+                      periodosLocal
+                        .slice(0, recordsLimit)
+                        .map((periodo, index) => (
+                          <tr key={index}>
+                            <td>{index + 1}</td>
+                            <td>
+                              {periodo.cliente?.persona?.nombre}{" "}
+                              {periodo.cliente?.persona?.apellido}
+                            </td>
+                            <td>{periodo.cliente.persona.dni}</td>
+                            <td>{periodo.mes}</td>
+                            <td>{periodo.año}</td>
+                            <td>{periodo.cantidad}</td>
+                            <td>{periodo.cuota}</td>
+                            <td>{periodo.i_debito.toFixed(2)}</td>
+                            <td>{periodo.i_descuento.toFixed(2)}</td>
+                            <td>
+                              {periodo.i_recargo_actualizado.toFixed(2)}
+                            </td>
+                            <td>{(periodo.total || 0).toFixed(2)}</td>
+                            <td>
+                              {periodo.f_vencimiento
+                                ? formatDate(periodo.f_vencimiento)
+                                : "Sin fecha"}
+                            </td>
+                            <td>
+                              {periodo.n_recibo_generado ||
+                                "Sin recibo generado"}
+                            </td>
+                            <td>{periodo.condicion_pago || "No pago"}</td>
+                            <td>
+                              {periodo.f_pago
+                                ? new Date(periodo.f_pago).toLocaleDateString(
+                                    "es-AR",
+                                    {
+                                      day: "2-digit",
+                                      month: "2-digit",
+                                      year: "numeric",
+                                    }
+                                  )
+                                : "No Pago"}
+                            </td>
+                          </tr>
+                        ))
                     ) : (
                       <tr>
                         <td colSpan="15" className="text-center text-muted">
@@ -457,12 +542,14 @@ const BombeoAguaForm = () => {
                   </tbody>
                 </Table>
               </div>
-              {periodos.length > 6 && (
+              {periodosLocal.length > 6 && (
                 <div className="text-center mt-2">
                   <CustomButton
                     variant="outline-secondary"
                     onClick={() =>
-                      setRecordsLimit(recordsLimit === 6 ? periodos.length : 6)
+                      setRecordsLimit(
+                        recordsLimit === 6 ? periodosLocal.length : 6
+                      )
                     }
                   >
                     {recordsLimit === 6 ? "Mostrar más" : "Mostrar menos"}
@@ -525,12 +612,12 @@ const BombeoAguaForm = () => {
               </Row>
             </section>
 
-            {/* Información de Factura */}
+            {/* Información de Periodo a Generar */}
             <section className="form-section mb-4">
               <Row>
                 <Col md={6}>
                   <h4 className="mb-4 text-secondary font-weight-bold">
-                    Información de Factura
+                    Información de Periodo a generar
                   </h4>
                   <Form.Group controlId="month">
                     <Form.Label className="font-weight-bold">
@@ -553,6 +640,25 @@ const BombeoAguaForm = () => {
                     </Form.Control>
                   </Form.Group>
 
+                  <Form.Group controlId="year" className="mt-3">
+                    <Form.Label className="font-weight-bold">
+                      Año <span className="text-danger">*</span>
+                    </Form.Label>
+                    <Form.Control
+                      as="select"
+                      value={year}
+                      onChange={(e) => setYear(parseInt(e.target.value))}
+                      required
+                      className="rounded"
+                      aria-label="Seleccione el año"
+                    >
+                      {yearOptions.map((y) => (
+                        <option key={y} value={y}>
+                          {y}
+                        </option>
+                      ))}
+                    </Form.Control>
+                  </Form.Group>
                   <Form.Group controlId="cuota" className="mt-3">
                     <Form.Label className="font-weight-bold">
                       Cuota <span className="text-danger">*</span>
@@ -565,6 +671,7 @@ const BombeoAguaForm = () => {
                       required
                       className="rounded"
                       aria-label="Ingrese la cuota"
+                      min={1}
                     />
                   </Form.Group>
 
@@ -596,14 +703,25 @@ const BombeoAguaForm = () => {
                     </h1>
                     <h3 className="text-secondary">{totalModules} Módulos</h3>
                     <p className="text-muted">
-                      Cliente: {selectedClient?.nombre}{" "}
-                      {selectedClient?.apellido} <br />
-                      DNI/CUIT: {selectedClient?.dni} <br />
-                      Servicio: {getServiceNameById(service)} <br />
-                      Volumen: {volume} m³ ({volume * 1000} litros) <br />
-                      Cuota: {cuota} <br />
-                      Mes: {month} <br />
-                      Vencimiento: {vencimiento}
+                      Cliente: {selectedClient?.nombre} {selectedClient?.apellido}
+                      <br />
+                      DNI/CUIT: {selectedClient?.dni}
+                      <br />
+                      Servicio: {getServiceNameById(service)}
+                      <br />
+                      Volumen: {volume} m³ ({volume * 1000} litros)
+                      <br />
+                      Cuota: {cuota}
+                      <br />
+                      Mes: {month}
+                      <br />
+                      Año: {year}
+                      <br />
+                      {/* Aquí formateamos la fecha a DD/MM/AAAA */}
+                      Vencimiento:{" "}
+                      {vencimiento
+                        ? formatLocalDate(vencimiento)
+                        : "No asignada"}
                     </p>
                   </div>
                 </Col>

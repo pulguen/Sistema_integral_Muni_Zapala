@@ -40,24 +40,20 @@ const ReciboImprimible = ({ recibo, handlePrint }) => {
     };
   }, [recibo, handlePrint]);
 
+  /**
+   * Esta función asume que la fecha llega como "YYYY-MM-DD"
+   * y simplemente invierte el orden para mostrar "DD/MM/YYYY".
+   */
   const formatFecha = (fechaString) => {
-    const fecha = new Date(fechaString);
-    const dia = fecha.getDate();
-    const meses = [
-      "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-      "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
-    ];
-    const mes = meses[fecha.getMonth()];
-    const año = fecha.getFullYear();
-    return `${dia} de ${mes} de ${año}`;
+    if (!fechaString) return 'N/A';
+    const [year, month, day] = fechaString.split('-'); 
+    return `${day}/${month}/${year}`;
   };
 
+  // Si querés tener una "fecha corta" igual, podés repetir la lógica 
+  // o usar la misma función. Aquí la dejo por separado a modo de ejemplo:
   const formatFechaCorta = (fechaString) => {
-    const fecha = new Date(fechaString);
-    const dia = fecha.getDate();
-    const mes = fecha.getMonth() + 1;
-    const año = fecha.getFullYear();
-    return `${dia}/${mes}/${año}`;
+    return formatFecha(fechaString);
   };
 
   return (
@@ -70,11 +66,15 @@ const ReciboImprimible = ({ recibo, handlePrint }) => {
               <canvas ref={barcodeRef} />
             </div>
             <p className="num-recibo-izq"><strong>{recibo.n_recibo || ''}</strong></p>
+            {/* Usamos formatFecha en lugar de crear un Date */}
             <p>{recibo.created_at ? formatFecha(recibo.created_at) : 'N/A'}</p>
           </div>
 
           <div className="sector2-izq">
-            <p>{recibo.cliente_nombre} {recibo.cliente_apellido} Dir: {recibo.cliente_calle || 'nombre calle'} {recibo.cliente_altura || 'num'}</p>
+            <p>
+              {recibo.cliente_nombre} {recibo.cliente_apellido} 
+              Dir: {recibo.cliente_calle || 'calle'} {recibo.cliente_altura || 'n°'}
+            </p>
           </div>
 
           <div className="sector3-izq">
@@ -100,12 +100,24 @@ const ReciboImprimible = ({ recibo, handlePrint }) => {
             <div className="totales-column-izq">
               <div className="totales-flex-izq">
                 <p className="importe-izq">Importe: ${recibo.importe.toFixed(2)}</p>
-                {recibo.descuento > 0 && <p className="descuento-izq">Descuento: ${recibo.descuento.toFixed(2)}</p>}
-                {recibo.recargo > 0 && <p className="recargo-izq">Recargo: ${recibo.recargo.toFixed(2)}</p>}
-                <p className="total-final-izq"><strong>${recibo.total.toFixed(2)}</strong></p>
+                {recibo.descuento > 0 && (
+                  <p className="descuento-izq">
+                    Descuento: ${recibo.descuento.toFixed(2)}
+                  </p>
+                )}
+                {recibo.recargo > 0 && (
+                  <p className="recargo-izq">
+                    Recargo: ${recibo.recargo.toFixed(2)}
+                  </p>
+                )}
+                <p className="total-final-izq">
+                  <strong>${recibo.total.toFixed(2)}</strong>
+                </p>
               </div>
               <div className="totales-footer-izq">
-                <p className="vencimiento-izq">Vencimiento: {recibo.vencimiento ? formatFechaCorta(recibo.vencimiento) : 'N/A'}</p>
+                <p className="vencimiento-izq">
+                  Vencimiento: {recibo.vencimiento ? formatFechaCorta(recibo.vencimiento) : 'N/A'}
+                </p>
               </div>
             </div>
           </div>
@@ -122,7 +134,10 @@ const ReciboImprimible = ({ recibo, handlePrint }) => {
           </div>
 
           <div className="sector3-der">
-            <p>{recibo.cliente_nombre} {recibo.cliente_apellido} Dir: {recibo.cliente_calle || 'nombre calle'} {recibo.cliente_altura || 'num'}</p>
+            <p>
+              {recibo.cliente_nombre} {recibo.cliente_apellido} 
+              Dir: {recibo.cliente_calle || 'calle'} {recibo.cliente_altura || 'n°'}
+            </p>
           </div>
 
           <div className="sector4-der">
@@ -137,16 +152,38 @@ const ReciboImprimible = ({ recibo, handlePrint }) => {
           </div>
 
           <div className="sector5-der">
-            <div className="totales-flex-der" style={{ alignItems: 'center', textAlign: 'center' }}>
-              <p className="importe-der">Importe: ${recibo.importe.toFixed(2)}</p>
-              {recibo.descuento > 0 && <p className="descuento-der">Descuento: ${recibo.descuento.toFixed(2)}</p>}
-              {recibo.recargo > 0 && <p className="recargo-der">Recargo: ${recibo.recargo.toFixed(2)}</p>}
+            <div
+              className="totales-flex-der"
+              style={{ alignItems: 'center', textAlign: 'center' }}
+            >
+              <p className="importe-der">
+                Importe: ${recibo.importe.toFixed(2)}
+              </p>
+              {recibo.descuento > 0 && (
+                <p className="descuento-der">
+                  Descuento: ${recibo.descuento.toFixed(2)}
+                </p>
+              )}
+              {recibo.recargo > 0 && (
+                <p className="recargo-der">
+                  Recargo: ${recibo.recargo.toFixed(2)}
+                </p>
+              )}
             </div>
-            <div className="totales-footer-der" style={{ alignItems: 'center', textAlign: 'center' }}>
-              <p className="total-final-der"><strong>${recibo.total.toFixed(2)}</strong></p>
-              <p><strong>{recibo.n_recibo || ''}</strong></p>
+            <div
+              className="totales-footer-der"
+              style={{ alignItems: 'center', textAlign: 'center' }}
+            >
+              <p className="total-final-der">
+                <strong>${recibo.total.toFixed(2)}</strong>
+              </p>
+              <p>
+                <strong>{recibo.n_recibo || ''}</strong>
+              </p>
               <p>{recibo.agente_emisor || 'Nombre Emisor'}</p>
-              <p className="vencimiento-der">Vencimiento: {recibo.vencimiento ? formatFechaCorta(recibo.vencimiento) : 'N/A'}</p>
+              <p className="vencimiento-der">
+                Vencimiento: {recibo.vencimiento ? formatFechaCorta(recibo.vencimiento) : 'N/A'}
+              </p>
             </div>
           </div>
         </div>

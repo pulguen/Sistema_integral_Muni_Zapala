@@ -1,4 +1,5 @@
 // src/features/facturacion/components/BombeoAgua/RecibosBombeoForm.jsx
+
 import React, {
   useState,
   useEffect,
@@ -40,6 +41,7 @@ const RecibosBombeoForm = () => {
   const clientDropdownRef = useRef(null);
   const [observaciones, setObservaciones] = useState('');
 
+  // Función para obtener el nombre del servicio según el cliente
   const getServiceNameByClientId = useCallback(
     (clientId) => {
       const servicio = servicios.find((servicio) =>
@@ -50,11 +52,26 @@ const RecibosBombeoForm = () => {
     [servicios]
   );
 
-  // Función para parsear fechas como locales
+  // Función para parsear fechas a un Date con año, mes, día (usado para validaciones)
+  // Ojo: Si tu fecha es YYYY-MM-DD, esto está bien. Si fuera DD/MM/YYYY, ajustá.
   const parseLocalDate = (dateString) => {
     const [year, month, day] = dateString.split('-').map(Number);
     return new Date(year, month - 1, day);
   };
+
+// Suponiendo que periodo.f_vencimiento es algo como "2024-12-31T03:00:00.000000Z"
+const formatVencimiento = (isoDateString) => {
+  if (!isoDateString) return 'Sin fecha';
+  
+  // 1) Separar por la 'T' para quedarnos sólo con "YYYY-MM-DD"
+  const [fullDate] = isoDateString.split('T'); // => "2024-12-31"
+  
+  // 2) Separar por '-' para extraer [year, month, day]
+  const [year, month, day] = fullDate.split('-'); // => ["2024", "12", "31"]
+
+  // 3) Devolver en formato DD/MM/AAAA
+  return `${day}/${month}/${year}`;
+};
 
   // Obtener clientes de los servicios
   const fetchClients = useCallback(async () => {
@@ -102,8 +119,7 @@ const RecibosBombeoForm = () => {
       }`.toLowerCase();
       const dni = client.persona?.dni ? client.persona.dni.toString() : '';
       return (
-        fullName.includes(searchTerm.toLowerCase()) ||
-        dni.includes(searchTerm)
+        fullName.includes(searchTerm.toLowerCase()) || dni.includes(searchTerm)
       );
     });
     setFilteredClients(filtered);
@@ -118,7 +134,7 @@ const RecibosBombeoForm = () => {
       const data = await customFetch(`/cuentas/cliente/${cliente_id}`);
       console.log('Datos recibidos:', data);
 
-      // Extraer 'responseData' y 'statusCode' de 'data'
+      // data usualmente es un array con [responseData, statusCode], etc.
       const [responseData] = data;
 
       if (responseData && responseData.length > 0) {
@@ -142,6 +158,7 @@ const RecibosBombeoForm = () => {
     }
   }, []);
 
+  // Acción al seleccionar cliente de la lista
   const handleClientSelect = useCallback(
     (clientId) => {
       const selectedClientData = allClients.find(
@@ -163,6 +180,7 @@ const RecibosBombeoForm = () => {
     [allClients, fetchPeriodos]
   );
 
+  // Seleccionar/deseleccionar un período en el checkbox
   const handlePeriodSelection = (periodo) => {
     const updatedSelectedPeriodos = selectedPeriodos.includes(periodo)
       ? selectedPeriodos.filter((p) => p !== periodo)
@@ -171,12 +189,17 @@ const RecibosBombeoForm = () => {
     setSelectedPeriodos(updatedSelectedPeriodos);
 
     const total = updatedSelectedPeriodos.reduce(
-      (sum, p) => sum + (parseFloat(p.i_debito) + parseFloat(p.i_recargo_actualizado) - parseFloat(p.i_descuento)),
+      (sum, p) =>
+        sum +
+        (parseFloat(p.i_debito) +
+          parseFloat(p.i_recargo_actualizado) -
+          parseFloat(p.i_descuento)),
       0
     );
     setTotalAmount(total);
   };
 
+  // Submit para generar el Recibo
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -185,10 +208,11 @@ const RecibosBombeoForm = () => {
       return;
     }
 
+    // Validar fecha de vencimiento para que no sea anterior a hoy
     const currentDate = new Date();
     const selectedDate = parseLocalDate(vencimiento);
 
-    // Comparar solo fechas, sin horas
+    // Comparar solo la parte de la fecha (sin hora)
     const today = new Date(
       currentDate.getFullYear(),
       currentDate.getMonth(),
@@ -204,6 +228,7 @@ const RecibosBombeoForm = () => {
       return;
     }
 
+    // Confirmación
     const confirmResult = await Swal.fire({
       title: '¿Generar Recibo?',
       text: '¿Estás seguro de generar este recibo?',
@@ -237,6 +262,7 @@ const RecibosBombeoForm = () => {
     }
   };
 
+  // Limpiar el formulario
   const handleReset = () => {
     setClient('');
     setSearchTerm('');
@@ -249,6 +275,7 @@ const RecibosBombeoForm = () => {
     setObservaciones('');
   };
 
+  // Manejar el click afuera del dropdown de clientes
   const handleClickOutside = useCallback(
     (event) => {
       if (
@@ -268,11 +295,11 @@ const RecibosBombeoForm = () => {
     };
   }, [handleClickOutside]);
 
-  // Función para obtener la fecha de hoy en formato local
+  // Función para obtener la fecha de hoy en formato YYYY-MM-DD
   const getTodayDate = () => {
     const today = new Date();
     const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0'); // Los meses inician en 0
+    const month = String(today.getMonth() + 1).padStart(2, '0');
     const day = String(today.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   };
@@ -282,6 +309,7 @@ const RecibosBombeoForm = () => {
       <h2 className="text-center mb-5 text-primary font-weight-bold">
         Generar Recibo de Bombeo de Agua
       </h2>
+
       <Form onSubmit={handleSubmit} className="px-4">
         {/* Información del Cliente */}
         <section className="form-section mb-4">
@@ -303,7 +331,7 @@ const RecibosBombeoForm = () => {
                   required
                   className="rounded"
                   aria-label="Buscar cliente por nombre o DNI/CUIT"
-                  autoComplete="off" // Desactiva autocompletado del navegador
+                  autoComplete="off"
                 />
                 {showClientList && (
                   <ListGroup
@@ -340,7 +368,7 @@ const RecibosBombeoForm = () => {
           </Row>
         </section>
 
-        {/* Solo mostrar el resto del formulario si hay un cliente seleccionado */}
+        {/* Solo mostrar el resto si hay un cliente seleccionado */}
         {client && (
           <>
             {/* Periodos Disponibles */}
@@ -371,7 +399,9 @@ const RecibosBombeoForm = () => {
                       <tr>
                         <td colSpan="12" className="text-center">
                           <Spinner animation="border" role="status">
-                            <span className="visually-hidden">Cargando...</span>
+                            <span className="visually-hidden">
+                              Cargando...
+                            </span>
                           </Spinner>
                         </td>
                       </tr>
@@ -389,11 +419,22 @@ const RecibosBombeoForm = () => {
                           <td>{periodo.cuota}</td>
                           <td>{parseFloat(periodo.i_debito).toFixed(2)}</td>
                           <td>{parseFloat(periodo.i_descuento).toFixed(2)}</td>
-                          <td>{parseFloat(periodo.i_recargo_actualizado).toFixed(2)}</td>
-                          <td>{`AR$ ${(parseFloat(periodo.i_debito) - parseFloat(periodo.i_descuento) + parseFloat(periodo.i_recargo_actualizado)).toFixed(2)}`}</td>
                           <td>
+                            {parseFloat(
+                              periodo.i_recargo_actualizado
+                            ).toFixed(2)}
+                          </td>
+                          <td>
+                            {`AR$ ${(
+                              parseFloat(periodo.i_debito) -
+                              parseFloat(periodo.i_descuento) +
+                              parseFloat(periodo.i_recargo_actualizado)
+                            ).toFixed(2)}`}
+                          </td>
+                          <td>
+                            {/* Aquí usamos nuestra función formatVencimiento */}
                             {periodo.f_vencimiento
-                              ? parseLocalDate(periodo.f_vencimiento).toLocaleDateString()
+                              ? formatVencimiento(periodo.f_vencimiento)
                               : 'Sin fecha'}
                           </td>
                           <td>
@@ -438,7 +479,9 @@ const RecibosBombeoForm = () => {
                     />
                   </Form.Group>
                   <Form.Group controlId="observaciones" className="mt-3">
-                    <Form.Label className="font-weight-bold">Observaciones</Form.Label>
+                    <Form.Label className="font-weight-bold">
+                      Observaciones
+                    </Form.Label>
                     <Form.Control
                       as="textarea"
                       value={observaciones}
@@ -446,7 +489,7 @@ const RecibosBombeoForm = () => {
                       rows={3}
                       className="rounded"
                       aria-label="Observaciones del recibo"
-                      placeholder='Escribí observaciones del recibo'
+                      placeholder="Escribí observaciones del recibo"
                     />
                   </Form.Group>
                 </Col>
@@ -462,9 +505,11 @@ const RecibosBombeoForm = () => {
                       AR$ {totalAmount.toFixed(2)}
                     </h1>
                     <p className="text-muted">
-                      Cliente: {selectedClient?.nombre} {selectedClient?.apellido}{' '}
+                      Cliente: {selectedClient?.nombre}{' '}
+                      {selectedClient?.apellido}
                       <br />
-                      DNI/CUIT: {selectedClient?.dni} <br />
+                      DNI/CUIT: {selectedClient?.dni}
+                      <br />
                       Periodos Seleccionados:{' '}
                       {selectedPeriodos
                         .map((p) => `${p.mes}/${p.año}`)
@@ -472,7 +517,8 @@ const RecibosBombeoForm = () => {
                       <br />
                       Fecha de Vencimiento:{' '}
                       {vencimiento
-                        ? parseLocalDate(vencimiento).toLocaleDateString()
+                        ? // Mostramos con toLocaleDateString o la misma función formatVencimiento
+                          parseLocalDate(vencimiento).toLocaleDateString()
                         : 'No asignada'}{' '}
                       <br />
                     </p>

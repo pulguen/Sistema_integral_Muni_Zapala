@@ -11,7 +11,7 @@ const KpiCards = React.memo(({ totalPeriodos, totalIngresos, promedioMensual }) 
       icon: '📈',
     },
     {
-      title: 'Ingresos Totales (AR$)',
+      title: 'Total Importes Generados (AR$)',
       value: parseFloat(totalIngresos).toFixed(2),
       bg: 'success',
       icon: '💰',

@@ -7,7 +7,7 @@ const Home = () => {
 
   return (
     <Container className="mt-5">
-      <h2 className="text-center mb-4">Bienvenido al Sistema</h2>
+      <h2 className="text-center mb-4">Bienvenido al Sistema Integral de la Municipalidad de Zapala</h2>
 
       <Row className="justify-content-center">
         <CommonCard

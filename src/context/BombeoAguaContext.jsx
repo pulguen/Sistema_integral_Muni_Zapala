@@ -71,10 +71,6 @@ export const BombeoAguaProvider = ({ children }) => {
   }, [fetchHomePeriodos]);
 
   useEffect(() => {
-    fetchHomePeriodos();
-  }, [fetchHomePeriodos]);
-
-  useEffect(() => {
     // Registrar este módulo en FacturacionContext
     registerModule("bombeo", { servicios, periodos, fetchHomePeriodos });
   }, [registerModule, servicios, periodos, fetchHomePeriodos]);
