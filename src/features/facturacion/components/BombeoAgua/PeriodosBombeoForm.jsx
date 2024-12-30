@@ -21,6 +21,8 @@ import CustomButton from "../../../../components/common/botons/CustomButton.jsx"
 import "../../../../styles/PeriodosBombeoForm.css";
 import { BombeoAguaContext } from "../../../../context/BombeoAguaContext.jsx";
 import customFetch from "../../../../context/CustomFetch.js";
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faCalendarCheck } from '@fortawesome/free-solid-svg-icons';
 
 const BombeoAguaForm = () => {
   const { handleCreatePeriodo } = useContext(BombeoAguaContext);
@@ -389,8 +391,14 @@ const BombeoAguaForm = () => {
   return (
     <Card className="shadow-sm p-5 mt-4 bombeo-agua-form">
       <h2 className="text-center mb-5 text-primary font-weight-bold">
-        Generar Periodo de Bombeo de Agua
+        <FontAwesomeIcon 
+          icon={faCalendarCheck} 
+          size="1x"          // Aumenta el tamaño del ícono
+          className="me-2"   // Espacio a la derecha
+        />
+        Generar Recibo de Bombeo de Agua
       </h2>
+
       <Form onSubmit={handleSubmit} className="px-4">
         {/* Información del Cliente */}
         <section className="form-section mb-4">

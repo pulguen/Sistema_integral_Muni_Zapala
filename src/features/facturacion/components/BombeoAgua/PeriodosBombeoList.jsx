@@ -7,6 +7,7 @@ import '../../../../styles/EmptyState.css';
 import customFetch from '../../../../context/CustomFetch';
 import { BombeoAguaContext } from '../../../../context/BombeoAguaContext';
 
+
 const PeriodosBombeoList = () => {
   const { periodos, handleConfirmPeriodo, handleDeletePeriodo } = useContext(BombeoAguaContext);
 

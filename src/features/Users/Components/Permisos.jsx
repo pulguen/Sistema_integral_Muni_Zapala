@@ -2,11 +2,9 @@
 
 import React from 'react';
 import { Breadcrumb } from 'react-bootstrap';
-import { useNavigate } from 'react-router-dom';
 import PermisosList from './PermisosList.jsx'; // Un componente que crearemos para listar permisos
 
 export default function Permisos() {
-  const navigate = useNavigate();
 
   return (
     <div className="permisos-section">
