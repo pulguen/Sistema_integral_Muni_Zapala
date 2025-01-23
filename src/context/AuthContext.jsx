@@ -1,5 +1,4 @@
-// AuthProvider.jsx
-import React, { createContext, useState, useEffect } from 'react';
+import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import customFetch from './CustomFetch';
@@ -10,31 +9,81 @@ export const AuthProvider = ({ children }) => {
   const navigate = useNavigate();
   const [token, setToken] = useState(localStorage.getItem('token') || null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  // Incluimos "services" en el objeto user (lo inicializamos con lo que haya en localStorage si existe)
   const [user, setUser] = useState({
     id: localStorage.getItem('userId') || null,
     name: localStorage.getItem('userName') || null,
+    roles: JSON.parse(localStorage.getItem('userRoles')) || [],
+    permissions: JSON.parse(localStorage.getItem('userPermissions')) || [],
+    services: JSON.parse(localStorage.getItem('userServices')) || [], // <-- nuevo
   });
+
   const [loading, setLoading] = useState(true);
 
-  // Verificación inicial del token al cargar el componente
-  useEffect(() => {
-    // Mover fetchUserData dentro del useEffect
-    const fetchUserData = async (userId) => {
-      try {
-        const data = await customFetch(`/users/${userId}`, 'GET');
-        setUser({ id: userId, name: data.name });
-        localStorage.setItem('userName', data.name);
-      } catch (error) {
-        console.error('Error al obtener los datos del usuario:', error);
-        setToken(null);
-        localStorage.removeItem('token');
-        localStorage.removeItem('userId');
-        localStorage.removeItem('userName');
-        setIsAuthenticated(false);
-        navigate('/login');
-      }
-    };
+  const logout = useCallback(() => {
+    setToken(null);
+    localStorage.clear();
+    setIsAuthenticated(false);
+    setUser({
+      id: null,
+      name: null,
+      roles: [],
+      permissions: [],
+      services: [],
+    });
+    navigate('/login');
+  }, [navigate]);
 
+  /**
+   * Función para obtener los roles, permisos y servicios actualizados del usuario.
+   */
+  const fetchUserPermissions = useCallback(async () => {
+    if (!user.id) return; // si no hay user.id, no hacemos la petición
+    try {
+      // Llamada a /users/{user.id} que debe devolver algo como:
+      // {
+      //   id: number,
+      //   name: string,
+      //   roles: [...],
+      //   servicios: [ { id: number, nombre: string, ... }, ... ]
+      //   ...
+      // }
+      const data = await customFetch(`/users/${user.id}`, 'GET');
+      const updatedRoles = data.roles.map((role) => role.name);
+      const updatedPermissions = data.roles.flatMap((role) =>
+        role.permissions.map((permission) => permission.name)
+      );
+      // Si el backend retorna "servicios" en data.servicios, convertimos a array de IDs
+      const updatedServices = data.servicios
+        ? data.servicios.map((serv) => serv.id)
+        : [];
+
+      setUser((prevUser) => ({
+        ...prevUser,
+        roles: updatedRoles,
+        permissions: updatedPermissions,
+        services: updatedServices, // <-- guardamos array de IDs de servicios
+      }));
+
+      // Actualizar localStorage
+      localStorage.setItem('userRoles', JSON.stringify(updatedRoles));
+      localStorage.setItem('userPermissions', JSON.stringify(updatedPermissions));
+      localStorage.setItem('userServices', JSON.stringify(updatedServices));
+    } catch (error) {
+      console.error('Error al actualizar los permisos/servicios:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error al actualizar permisos',
+        text: 'Hubo un problema al actualizar los permisos/servicios. Inténtalo más tarde.',
+      });
+    }
+  }, [user.id]);
+
+  /**
+   * Efecto que valida el token al montar (o cambiar `token`)
+   */
+  useEffect(() => {
     const validateToken = async () => {
       if (!token) {
         setIsAuthenticated(false);
@@ -44,30 +93,24 @@ export const AuthProvider = ({ children }) => {
 
       const userId = localStorage.getItem('userId');
       if (userId) {
-        await fetchUserData(userId);
         setIsAuthenticated(true);
+        // Actualizar permisos y servicios cuando la sesión esté activa.
+        await fetchUserPermissions();
       } else {
-        setToken(null);
-        localStorage.removeItem('token');
-        localStorage.removeItem('userId');
-        localStorage.removeItem('userName');
-        setIsAuthenticated(false);
-        navigate('/login');
+        logout();
       }
       setLoading(false);
     };
 
     validateToken();
-  }, [token, navigate]);
+  }, [token, logout, fetchUserPermissions]);
 
+  /**
+   * Efecto para manejar un token expirado (opcional)
+   */
   useEffect(() => {
     const handleTokenExpired = () => {
-      setToken(null);
-      localStorage.removeItem('token');
-      localStorage.removeItem('userId');
-      localStorage.removeItem('userName');
-      setIsAuthenticated(false);
-      navigate('/login');
+      logout();
       Swal.fire({
         icon: 'error',
         title: 'Sesión expirada',
@@ -80,27 +123,51 @@ export const AuthProvider = ({ children }) => {
     return () => {
       window.removeEventListener('tokenExpired', handleTokenExpired);
     };
-  }, [navigate]);
+  }, [logout]);
 
+  /**
+   * Función para hacer login
+   */
   const login = async (email, password) => {
     try {
       const data = await customFetch('/login', 'POST', { email, password });
       const token = data.token?.plainTextToken;
-      const userId = data.token?.accessToken?.tokenable_id;
+      const userData = data.user;
+      console.log('Datos del usuario:', userData);
 
-      if (token && userId) {
+      if (token && userData) {
+        const roles = userData.roles.map((role) => role.name);
+        const permissions = userData.roles.flatMap((role) =>
+          role.permissions.map((permission) => permission.name)
+        );
+        // Si la respuesta del login ya incluye userData.servicios, 
+        // mapeamos a IDs
+        let servicesArray = [];
+        if (Array.isArray(userData.servicios)) {
+          servicesArray = userData.servicios.map((s) => s.id);
+        }
+
         setToken(token);
+        setUser({
+          id: userData.id,
+          name: userData.name,
+          roles,
+          permissions,
+          services: servicesArray, // <-- guardamos también
+        });
+
         localStorage.setItem('token', token);
-        localStorage.setItem('userId', userId);
-        // Obtener los datos del usuario después del login
-        const userData = await customFetch(`/users/${userId}`, 'GET');
-        setUser({ id: userId, name: userData.name });
+        localStorage.setItem('userId', userData.id);
         localStorage.setItem('userName', userData.name);
+        localStorage.setItem('userRoles', JSON.stringify(roles));
+        localStorage.setItem('userPermissions', JSON.stringify(permissions));
+        localStorage.setItem('userServices', JSON.stringify(servicesArray));
+
         setIsAuthenticated(true);
         navigate('/');
         return true;
       } else {
-        throw new Error('No se recibió un token válido o ID de usuario del servidor.');
+        throw new Error('No se recibió un token válido o datos de usuario del servidor.');
       }
     } catch (error) {
       console.error('Error en login:', error);
@@ -113,28 +180,17 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = async () => {
-    try {
-      await customFetch('/logout', 'GET');
-    } catch (error) {
-      console.error('Error durante el logout:', error.message);
-      Swal.fire({
-        icon: 'error',
-        title: 'Error de Cierre de Sesión',
-        text: 'Hubo un problema al cerrar tu sesión. Inténtalo de nuevo.',
-      });
-    } finally {
-      setToken(null);
-      localStorage.removeItem('token');
-      localStorage.removeItem('userId');
-      localStorage.removeItem('userName');
-      setIsAuthenticated(false);
-      navigate('/login');
-    }
-  };
-
   return (
-    <AuthContext.Provider value={{ isAuthenticated, user, login, logout, loading }}>
+    <AuthContext.Provider
+      value={{
+        isAuthenticated,
+        user,
+        login,
+        logout,
+        loading,
+        fetchUserPermissions,
+      }}
+    >
       {!loading && children}
     </AuthContext.Provider>
   );

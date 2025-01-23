@@ -19,6 +19,8 @@ import Roles from './features/Users/Components/Roles.jsx';
 import Permisos from './features/Users/Components/Permisos.jsx';
 import RecibosHistorial from './features/facturacion/components/Recibos/RecibosHistorial.jsx';
 import HomeCaja from './features/caja/HomeCaja.jsx';
+import Unauthorized from './pages/Unauthorized/Unauthorized.jsx';
+import UsuarioDetalle from './features/Users/Components/UsuarioDetalle.jsx';
 
 // Importamos los Proveedores
 import { FacturacionProvider } from './context/FacturacionContext';
@@ -103,6 +105,7 @@ function AppContent() {
                       <Route index element={<Usuarios />} />
                       <Route path="roles" element={<Roles />} />
                       <Route path="permisos" element={<Permisos />} />
+                      <Route path=":id" element={<UsuarioDetalle />} />
                       {/* Puedes agregar más subrutas aquí */}
                     </Routes>
                   </MainLayout>
@@ -123,6 +126,16 @@ function AppContent() {
             }
           />
         </Route>
+
+        {/* Ruta de Acceso Denegado */}
+        <Route
+          path="/unauthorized"
+          element={
+            <GlobalLayout>
+              <Unauthorized />
+            </GlobalLayout>
+          }
+        />
 
         {/* Ruta About */}
         <Route
